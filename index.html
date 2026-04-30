@@ -1499,7 +1499,7 @@ function memberRowHtml(name, type) {
     <button type="button" class="member-type-btn ${isAdult ? 'adult' : 'child'}"
       data-type="${isAdult ? 'adult' : 'child'}"
       onclick="toggleMemberType(this)">${isAdult ? '👨 מבוגר' : '🧒 ילד'}</button>
-    <button type="button" class="member-del" onclick="this.closest('.member-row').remove()">✕</button>
+    <button type="button" class="member-del" onclick="this.closest('.member-row').remove(); syncCountFromMembers()">✕</button>
   </div>`;
 }
 
@@ -1510,6 +1510,7 @@ function addMemberRow(type) {
   div.innerHTML = memberRowHtml('', type);
   container.appendChild(div.firstChild);
   container.lastElementChild?.querySelector('.member-name')?.focus();
+  syncCountFromMembers();
 }
 
 function toggleMemberType(btn) {
@@ -1518,6 +1519,21 @@ function toggleMemberType(btn) {
   btn.className = 'member-type-btn ' + (isAdult ? 'child' : 'adult');
   btn.textContent = isAdult ? '🧒 ילד' : '👨 מבוגר';
   btn.closest('.member-row').querySelector('.member-name').placeholder = isAdult ? 'שם ילד' : 'שם מבוגר';
+  syncCountFromMembers();
+}
+
+function syncCountFromMembers() {
+  const rows = document.querySelectorAll('#members-rows .member-row');
+  let adults = 0, children = 0;
+  rows.forEach(row => {
+    if (row.querySelector('.member-type-btn').dataset.type === 'child') children++;
+    else adults++;
+  });
+  const ia = document.getElementById('g-adults');
+  const ic = document.getElementById('g-children');
+  if (ia) ia.value = adults;
+  if (ic) ic.value = children;
+  updateGuestCostPreview();
 }
 
 function syncMembersToCount() {
