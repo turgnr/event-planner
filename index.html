@@ -1056,6 +1056,15 @@ function totalFoodCost(guestsArr) {
 
 const GROUP_LABELS = { family: 'משפחה', friends: 'חברים', work: 'עבודה', other: 'אחר' };
 const STATUS_LABELS = { confirmed: 'מאושר', pending: 'ממתין', declined: 'סירב' };
+const STATUS_CYCLE  = { pending: 'confirmed', confirmed: 'declined', declined: 'pending' };
+
+function quickStatusToggle(id) {
+  const g = state.guests.find(x => x.id === id);
+  if (!g) return;
+  g.status = STATUS_CYCLE[g.status] || 'pending';
+  save();
+  renderGuests();
+}
 const CATEGORY_LABELS = { venue: 'אולם', catering: 'קייטרינג', photo: 'צילום', music: 'מוזיקה', decor: 'עיצוב', other: 'אחר' };
 const VENDOR_STATUS_LABELS = { pending: 'ממתין', confirmed: 'מאושר', paid: 'שולם' };
 
@@ -1323,7 +1332,7 @@ function renderGuests() {
           <div class="card-title">${esc(g.name)}</div>
           ${g.phone ? `<div class="card-sub">${esc(g.phone)}</div>` : ''}
         </div>
-        <span class="badge badge-${g.status}">${STATUS_LABELS[g.status] || g.status}</span>
+        <button class="badge badge-${g.status}" style="cursor:pointer;border:none;font:inherit" title="לחץ לשינוי סטטוס" onclick="quickStatusToggle('${g.id}')">${STATUS_LABELS[g.status] || g.status}</button>
       </div>
       <div style="display:flex;gap:8px;margin-top:10px;flex-wrap:wrap;align-items:center">
         <span class="badge badge-${g.group}">${GROUP_LABELS[g.group] || g.group}</span>
