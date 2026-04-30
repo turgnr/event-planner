@@ -1,0 +1,2280 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>מתכנן האירוע</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Heebo:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+/* ─── Design Tokens ─── */
+:root {
+  --navy: #1a1f3c;
+  --navy-light: #252b52;
+  --navy-pale: #eef0f7;
+  --gold: #c9a84c;
+  --gold-light: #e8c97e;
+  --gold-pale: #fdf6e3;
+  --cream: #faf7f2;
+  --white: #ffffff;
+  --text-dark: #1a1f3c;
+  --text-mid: #4a5068;
+  --text-light: #8b93b5;
+  --border: #e8e4dc;
+  --success: #5a9a7a;
+  --success-pale: #edf7f2;
+  --danger: #c46060;
+  --danger-pale: #fdf0f0;
+  --warning: #d4943a;
+  --warning-pale: #fef6ec;
+  --radius: 16px;
+  --radius-sm: 10px;
+  --header-height: 64px;
+  --tab-height: 64px;
+  --shadow-sm: 0 2px 8px rgba(26,31,60,0.08);
+  --shadow-md: 0 4px 20px rgba(26,31,60,0.14);
+  --shadow-lg: 0 8px 40px rgba(26,31,60,0.20);
+}
+
+/* ─── Reset ─── */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+html, body {
+  height: 100%;
+  font-family: 'Heebo', sans-serif;
+  background: var(--cream);
+  color: var(--text-dark);
+  -webkit-tap-highlight-color: transparent;
+  overscroll-behavior: none;
+}
+button { font-family: inherit; cursor: pointer; border: none; background: none; }
+input, select, textarea { font-family: inherit; }
+a { text-decoration: none; color: inherit; }
+
+/* ─── App Shell ─── */
+#app {
+  max-width: 480px;
+  margin: 0 auto;
+  height: 100dvh;
+  display: flex;
+  flex-direction: column;
+  position: relative;
+  overflow: hidden;
+  background: var(--cream);
+}
+
+/* ─── Header ─── */
+#header {
+  height: var(--header-height);
+  min-height: var(--header-height);
+  background: var(--navy);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 16px;
+  position: relative;
+  z-index: 100;
+  box-shadow: var(--shadow-md);
+}
+#header-title {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  overflow: hidden;
+}
+#header-event-name {
+  font-size: 17px;
+  font-weight: 700;
+  color: var(--white);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+#header-event-date {
+  font-size: 12px;
+  color: var(--gold-light);
+  font-weight: 400;
+  margin-top: 1px;
+}
+.header-actions { display: flex; gap: 4px; }
+.header-btn {
+  width: 40px;
+  height: 40px;
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--white);
+  font-size: 19px;
+  transition: background 0.15s;
+}
+.header-btn:active { background: rgba(255,255,255,0.15); }
+
+/* ─── Main Content ─── */
+#main-content {
+  flex: 1;
+  overflow-y: auto;
+  overflow-x: hidden;
+  -webkit-overflow-scrolling: touch;
+  padding-bottom: calc(var(--tab-height) + 80px);
+}
+.tab-panel { display: none; padding: 16px; }
+.tab-panel.active { display: block; }
+
+/* ─── Tab Bar ─── */
+#tab-bar {
+  height: var(--tab-height);
+  min-height: var(--tab-height);
+  background: var(--white);
+  border-top: 1px solid var(--border);
+  display: flex;
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  z-index: 100;
+  box-shadow: 0 -2px 12px rgba(26,31,60,0.08);
+}
+.tab-btn {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 3px;
+  color: var(--text-light);
+  font-size: 10px;
+  font-weight: 500;
+  padding: 8px 4px;
+  transition: color 0.15s;
+  position: relative;
+}
+.tab-btn:active { opacity: 0.7; }
+.tab-btn .tab-icon { font-size: 20px; line-height: 1; }
+.tab-btn.active {
+  color: var(--navy);
+  font-weight: 700;
+}
+.tab-btn.active::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 20%;
+  right: 20%;
+  height: 3px;
+  background: var(--gold);
+  border-radius: 0 0 3px 3px;
+}
+
+/* ─── FAB ─── */
+#fab {
+  position: absolute;
+  bottom: calc(var(--tab-height) + 16px);
+  left: 16px;
+  width: 56px;
+  height: 56px;
+  border-radius: 18px;
+  background: var(--gold);
+  color: var(--navy);
+  font-size: 26px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 4px 16px rgba(201,168,76,0.45);
+  z-index: 90;
+  transition: transform 0.15s, box-shadow 0.15s;
+  font-weight: 700;
+}
+#fab:active { transform: scale(0.93); box-shadow: 0 2px 8px rgba(201,168,76,0.3); }
+
+/* ─── Modal ─── */
+#modal-overlay {
+  display: none;
+  position: fixed;
+  inset: 0;
+  background: rgba(10,14,40,0.55);
+  z-index: 200;
+  opacity: 0;
+  transition: opacity 0.25s;
+}
+#modal-overlay.open { display: flex; align-items: flex-end; }
+#modal-overlay.visible { opacity: 1; }
+#modal {
+  background: var(--white);
+  border-radius: 24px 24px 0 0;
+  width: 100%;
+  max-width: 480px;
+  margin: 0 auto;
+  max-height: 92dvh;
+  overflow-y: auto;
+  transform: translateY(100%);
+  transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+#modal.visible { transform: translateY(0); }
+.modal-handle {
+  width: 40px;
+  height: 4px;
+  background: var(--border);
+  border-radius: 2px;
+  margin: 12px auto 0;
+}
+.modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 20px 12px;
+  border-bottom: 1px solid var(--border);
+}
+.modal-title {
+  font-size: 17px;
+  font-weight: 700;
+  color: var(--text-dark);
+}
+.modal-close {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: var(--cream);
+  color: var(--text-mid);
+  font-size: 18px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.modal-close:active { background: var(--border); }
+.modal-body { padding: 20px; }
+.modal-actions {
+  padding: 0 20px 24px;
+  display: flex;
+  gap: 10px;
+}
+
+/* ─── Toast ─── */
+#toast {
+  position: fixed;
+  bottom: calc(var(--tab-height) + 80px);
+  left: 50%;
+  transform: translateX(-50%) translateY(20px);
+  background: var(--navy);
+  color: var(--white);
+  padding: 11px 20px;
+  border-radius: 50px;
+  font-size: 14px;
+  font-weight: 500;
+  white-space: nowrap;
+  z-index: 300;
+  opacity: 0;
+  transition: opacity 0.2s, transform 0.2s;
+  pointer-events: none;
+  max-width: calc(100vw - 40px);
+  text-align: center;
+}
+#toast.show {
+  opacity: 1;
+  transform: translateX(-50%) translateY(0);
+}
+#toast.success { background: var(--success); }
+#toast.error { background: var(--danger); }
+
+/* ─── Cards ─── */
+.card {
+  background: var(--white);
+  border-radius: var(--radius);
+  padding: 16px;
+  box-shadow: var(--shadow-sm);
+  border: 1px solid var(--border);
+  margin-bottom: 12px;
+}
+.card-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+.card-title {
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--text-dark);
+}
+.card-sub {
+  font-size: 13px;
+  color: var(--text-mid);
+  margin-top: 2px;
+}
+.card-actions {
+  display: flex;
+  gap: 6px;
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px solid var(--border);
+}
+
+/* ─── Badges ─── */
+.badge {
+  padding: 3px 10px;
+  border-radius: 20px;
+  font-size: 11px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+.badge-confirmed { background: var(--success-pale); color: var(--success); }
+.badge-pending   { background: var(--warning-pale); color: var(--warning); }
+.badge-declined  { background: var(--danger-pale);  color: var(--danger); }
+.badge-paid      { background: var(--success-pale); color: var(--success); }
+.badge-family    { background: var(--navy-pale);    color: var(--navy); }
+.badge-friends   { background: var(--gold-pale);    color: #8a6b1a; }
+.badge-work      { background: #f0f0f8;             color: #5a5a9a; }
+.badge-other     { background: var(--cream);        color: var(--text-mid); }
+.badge-venue     { background: var(--navy-pale);    color: var(--navy); }
+.badge-catering  { background: var(--gold-pale);    color: #8a6b1a; }
+.badge-photo     { background: #f0eeff;             color: #6a5acd; }
+.badge-music     { background: #fff0f5;             color: #c06080; }
+.badge-decor     { background: var(--success-pale); color: var(--success); }
+
+/* ─── Buttons ─── */
+.btn {
+  height: 48px;
+  border-radius: var(--radius-sm);
+  font-size: 15px;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 0 20px;
+  flex: 1;
+  transition: opacity 0.15s, transform 0.1s;
+}
+.btn:active { opacity: 0.85; transform: scale(0.98); }
+.btn-primary { background: var(--navy); color: var(--white); }
+.btn-gold    { background: var(--gold); color: var(--navy); }
+.btn-danger  { background: var(--danger-pale); color: var(--danger); }
+.btn-ghost   { background: var(--cream); color: var(--text-mid); border: 1px solid var(--border); }
+.btn-sm {
+  height: 36px;
+  font-size: 13px;
+  padding: 0 14px;
+  border-radius: 8px;
+  flex: none;
+}
+
+/* ─── Forms ─── */
+.form-group { margin-bottom: 16px; }
+.form-label {
+  display: block;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-mid);
+  margin-bottom: 6px;
+}
+.form-input, .form-select, .form-textarea {
+  width: 100%;
+  height: 48px;
+  border: 1.5px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 0 14px;
+  font-size: 15px;
+  color: var(--text-dark);
+  background: var(--white);
+  outline: none;
+  transition: border-color 0.15s;
+  direction: rtl;
+}
+.form-input:focus, .form-select:focus, .form-textarea:focus {
+  border-color: var(--navy);
+}
+.form-textarea {
+  height: auto;
+  min-height: 80px;
+  padding: 12px 14px;
+  resize: none;
+}
+.form-row { display: flex; gap: 12px; }
+.form-row .form-group { flex: 1; }
+
+/* ─── Filter Bar ─── */
+.filter-bar {
+  display: flex;
+  gap: 8px;
+  overflow-x: auto;
+  padding-bottom: 4px;
+  margin-bottom: 12px;
+  scrollbar-width: none;
+}
+.filter-bar::-webkit-scrollbar { display: none; }
+.filter-chip {
+  height: 34px;
+  padding: 0 14px;
+  border-radius: 50px;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-mid);
+  background: var(--white);
+  border: 1.5px solid var(--border);
+  white-space: nowrap;
+  flex-shrink: 0;
+  transition: all 0.15s;
+}
+.filter-chip:active { transform: scale(0.96); }
+.filter-chip.active {
+  background: var(--navy);
+  color: var(--white);
+  border-color: var(--navy);
+}
+
+/* ─── Progress Bar ─── */
+.progress-wrap {
+  background: var(--border);
+  border-radius: 50px;
+  height: 8px;
+  overflow: hidden;
+  margin-top: 8px;
+}
+.progress-fill {
+  height: 100%;
+  border-radius: 50px;
+  background: linear-gradient(90deg, var(--gold), var(--gold-light));
+  transition: width 0.4s ease;
+}
+.progress-fill.danger { background: linear-gradient(90deg, var(--danger), #e07878); }
+.progress-fill.success { background: linear-gradient(90deg, var(--success), #7bbf9a); }
+
+/* ─── Empty State ─── */
+.empty-state {
+  text-align: center;
+  padding: 48px 24px;
+  color: var(--text-light);
+}
+.empty-state .empty-icon { font-size: 48px; margin-bottom: 16px; }
+.empty-state .empty-title { font-size: 16px; font-weight: 600; color: var(--text-mid); margin-bottom: 8px; }
+.empty-state .empty-desc { font-size: 14px; line-height: 1.5; }
+
+/* ─── Section Header ─── */
+.section-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 12px;
+}
+.section-title {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--text-light);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+/* ─── Summary Bar ─── */
+.summary-bar {
+  background: var(--navy);
+  border-radius: var(--radius);
+  padding: 14px 16px;
+  display: flex;
+  justify-content: space-around;
+  margin-bottom: 16px;
+}
+.summary-item { text-align: center; }
+.summary-num {
+  font-size: 22px;
+  font-weight: 800;
+  color: var(--white);
+  line-height: 1;
+}
+.summary-label {
+  font-size: 11px;
+  color: var(--gold-light);
+  margin-top: 3px;
+  font-weight: 500;
+}
+
+/* ─── Home Tab ─── */
+.home-stat-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  margin-bottom: 12px;
+}
+.stat-card {
+  background: var(--white);
+  border-radius: var(--radius);
+  padding: 16px;
+  border: 1px solid var(--border);
+  box-shadow: var(--shadow-sm);
+}
+.stat-card.gold { background: var(--gold-pale); border-color: #e8d9a0; }
+.stat-card.navy { background: var(--navy); }
+.stat-num {
+  font-size: 28px;
+  font-weight: 800;
+  color: var(--text-dark);
+  line-height: 1;
+}
+.stat-card.navy .stat-num { color: var(--white); }
+.stat-card.navy .stat-label { color: var(--gold-light); }
+.stat-label {
+  font-size: 12px;
+  color: var(--text-mid);
+  margin-top: 4px;
+  font-weight: 500;
+}
+.stat-icon { font-size: 22px; margin-bottom: 8px; }
+
+.countdown-card {
+  background: linear-gradient(135deg, var(--navy) 0%, var(--navy-light) 100%);
+  border-radius: var(--radius);
+  padding: 20px;
+  text-align: center;
+  margin-bottom: 12px;
+  box-shadow: var(--shadow-md);
+}
+.countdown-num {
+  font-size: 52px;
+  font-weight: 800;
+  color: var(--gold-light);
+  line-height: 1;
+}
+.countdown-label {
+  font-size: 14px;
+  color: rgba(255,255,255,0.7);
+  margin-top: 4px;
+}
+
+/* ─── Budget Tab ─── */
+.budget-overview {
+  background: var(--navy);
+  border-radius: var(--radius);
+  padding: 20px;
+  margin-bottom: 16px;
+  box-shadow: var(--shadow-md);
+}
+.budget-overview-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  margin-bottom: 12px;
+}
+.budget-total-label { font-size: 13px; color: rgba(255,255,255,0.6); }
+.budget-total-num { font-size: 26px; font-weight: 800; color: var(--white); }
+.budget-cols {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 14px;
+  gap: 8px;
+}
+.budget-col { flex: 1; text-align: center; }
+.budget-col-num { font-size: 16px; font-weight: 700; color: var(--gold-light); }
+.budget-col-label { font-size: 11px; color: rgba(255,255,255,0.55); margin-top: 2px; }
+
+.budget-table { width: 100%; border-collapse: collapse; }
+.budget-table th {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--text-light);
+  text-align: right;
+  padding: 6px 8px;
+  border-bottom: 1.5px solid var(--border);
+}
+.budget-table td {
+  font-size: 13px;
+  padding: 10px 8px;
+  border-bottom: 1px solid var(--border);
+  color: var(--text-dark);
+}
+.budget-table td:not(:first-child) { text-align: left; direction: ltr; }
+.budget-table th:not(:first-child) { text-align: left; }
+.budget-table tr:last-child td { border-bottom: none; }
+.budget-table .total-row td { font-weight: 700; color: var(--navy); border-top: 2px solid var(--border); }
+
+/* ─── Qty Tab ─── */
+.qty-base-info {
+  background: var(--gold-pale);
+  border: 1px solid #e8d9a0;
+  border-radius: var(--radius-sm);
+  padding: 12px 16px;
+  margin-bottom: 16px;
+  font-size: 14px;
+  color: #7a5e1a;
+  font-weight: 500;
+  text-align: center;
+}
+.qty-card {
+  background: var(--white);
+  border-radius: var(--radius);
+  padding: 14px 16px;
+  box-shadow: var(--shadow-sm);
+  border: 1px solid var(--border);
+  margin-bottom: 10px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.qty-icon { font-size: 28px; line-height: 1; flex-shrink: 0; }
+.qty-info { flex: 1; }
+.qty-name { font-size: 15px; font-weight: 600; color: var(--text-dark); }
+.qty-per { font-size: 12px; color: var(--text-light); margin-top: 2px; }
+.qty-result {
+  font-size: 22px;
+  font-weight: 800;
+  color: var(--navy);
+  flex-shrink: 0;
+  min-width: 48px;
+  text-align: center;
+}
+.qty-unit { font-size: 11px; color: var(--text-light); text-align: center; }
+.qty-edit-btn {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: var(--cream);
+  color: var(--text-mid);
+  font-size: 15px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+.qty-edit-btn:active { background: var(--border); }
+
+/* ─── Tasks Tab ─── */
+.task-card {
+  background: var(--white);
+  border-radius: var(--radius);
+  padding: 14px 16px;
+  box-shadow: var(--shadow-sm);
+  border: 1px solid var(--border);
+  margin-bottom: 10px;
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+}
+.task-card.done { opacity: 0.6; }
+.task-checkbox {
+  width: 22px;
+  height: 22px;
+  border-radius: 6px;
+  border: 2px solid var(--border);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  margin-top: 1px;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+.task-checkbox.checked {
+  background: var(--success);
+  border-color: var(--success);
+  color: white;
+  font-size: 13px;
+}
+.task-checkbox:active { transform: scale(0.9); }
+.task-body { flex: 1; }
+.task-text { font-size: 15px; color: var(--text-dark); line-height: 1.4; }
+.task-card.done .task-text { text-decoration: line-through; }
+.task-due { font-size: 12px; color: var(--text-light); margin-top: 4px; }
+.task-due.overdue { color: var(--danger); font-weight: 600; }
+.task-delete {
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-light);
+  font-size: 16px;
+  flex-shrink: 0;
+}
+.task-delete:active { background: var(--danger-pale); color: var(--danger); }
+
+/* ─── Vendor Card ─── */
+.vendor-progress-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 10px;
+}
+.vendor-progress-label { font-size: 12px; color: var(--text-light); white-space: nowrap; }
+.vendor-progress-wrap { flex: 1; background: var(--border); border-radius: 50px; height: 6px; overflow: hidden; }
+.vendor-progress-fill { height: 100%; border-radius: 50px; background: var(--gold); transition: width 0.3s; }
+
+/* ─── Divider ─── */
+.divider { height: 1px; background: var(--border); margin: 16px 0; }
+
+/* ─── Members List ─── */
+.members-section { margin-bottom: 16px; }
+.members-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 8px;
+}
+.member-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+.member-row .form-input { flex: 1; height: 40px; font-size: 14px; }
+.member-type-btn {
+  height: 40px;
+  padding: 0 10px;
+  border-radius: 8px;
+  font-size: 12px;
+  font-weight: 700;
+  white-space: nowrap;
+  border: 1.5px solid var(--border);
+  color: var(--text-mid);
+  background: var(--cream);
+  transition: all 0.15s;
+  flex-shrink: 0;
+}
+.member-type-btn.adult { background: var(--navy-pale); color: var(--navy); border-color: var(--navy-pale); }
+.member-type-btn.child { background: var(--gold-pale); color: #8a6b1a; border-color: #e8d9a0; }
+.member-type-btn:active { transform: scale(0.95); }
+.member-del {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  color: var(--text-light);
+  font-size: 15px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+.member-del:active { background: var(--danger-pale); color: var(--danger); }
+.member-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 8px;
+  border-radius: 20px;
+  font-size: 12px;
+  font-weight: 500;
+  background: var(--cream);
+  border: 1px solid var(--border);
+  color: var(--text-mid);
+  margin: 2px;
+}
+.member-chip.adult { background: var(--navy-pale); color: var(--navy); border-color: transparent; }
+.member-chip.child { background: var(--gold-pale); color: #8a6b1a; border-color: transparent; }
+
+/* ─── Login Screen ─── */
+#login-screen {
+  position: fixed;
+  inset: 0;
+  background: var(--navy);
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+}
+#login-screen.hidden { display: none; }
+.login-box {
+  width: 100%;
+  max-width: 360px;
+  background: var(--white);
+  border-radius: 24px;
+  padding: 32px 24px;
+  box-shadow: var(--shadow-lg);
+}
+.login-logo { text-align: center; margin-bottom: 24px; }
+.login-logo .logo-icon { font-size: 48px; }
+.login-logo .logo-title {
+  font-size: 20px;
+  font-weight: 800;
+  color: var(--navy);
+  margin-top: 8px;
+}
+.login-logo .logo-sub {
+  font-size: 13px;
+  color: var(--text-light);
+  margin-top: 4px;
+}
+.login-error {
+  background: var(--danger-pale);
+  color: var(--danger);
+  border-radius: var(--radius-sm);
+  padding: 10px 14px;
+  font-size: 13px;
+  margin-bottom: 16px;
+  display: none;
+}
+.login-error.show { display: block; }
+
+/* ─── Sync indicator ─── */
+#sync-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--success);
+  display: inline-block;
+  margin-right: 4px;
+  transition: background 0.3s;
+}
+#sync-dot.syncing { background: var(--gold); animation: pulse 1s infinite; }
+#sync-dot.error { background: var(--danger); }
+@keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.4} }
+</style>
+</head>
+
+<body>
+
+<!-- Login Screen -->
+<div id="login-screen">
+  <div class="login-box">
+    <div class="login-logo">
+      <div class="logo-icon">🎉</div>
+      <div class="logo-title">מתכנן האירוע</div>
+      <div class="logo-sub">התחבר כדי לגשת לתכנון</div>
+    </div>
+    <div class="login-error" id="login-error"></div>
+    <div class="form-group">
+      <label class="form-label">אימייל</label>
+      <input class="form-input" id="login-email" type="email" placeholder="your@email.com" dir="ltr">
+    </div>
+    <div class="form-group">
+      <label class="form-label">סיסמה</label>
+      <input class="form-input" id="login-password" type="password" placeholder="••••••••" dir="ltr"
+        onkeydown="if(event.key==='Enter') doLogin()">
+    </div>
+    <button class="btn btn-primary" style="width:100%;margin-top:4px" onclick="doLogin()" id="login-btn">
+      התחבר
+    </button>
+  </div>
+</div>
+
+<div id="app">
+
+  <!-- Header -->
+  <header id="header">
+    <div id="header-title">
+      <div id="header-event-name">מתכנן האירוע</div>
+      <div id="header-event-date"></div>
+    </div>
+    <div class="header-actions">
+      <span id="sync-dot" title="סטטוס סנכרון"></span>
+      <button class="header-btn" onclick="exportData()" title="גיבוי">💾</button>
+      <button class="header-btn" onclick="openSettings()" title="הגדרות">⚙️</button>
+    </div>
+  </header>
+
+  <!-- Main Content -->
+  <main id="main-content">
+
+    <!-- Home -->
+    <div id="tab-home" class="tab-panel active">
+      <div id="home-content"></div>
+    </div>
+
+    <!-- Guests -->
+    <div id="tab-guests" class="tab-panel">
+      <div class="filter-bar" id="guest-filters"></div>
+      <div id="guests-list"></div>
+      <div id="guests-summary"></div>
+    </div>
+
+    <!-- Vendors -->
+    <div id="tab-vendors" class="tab-panel">
+      <div class="filter-bar" id="vendor-filters"></div>
+      <div id="vendors-list"></div>
+    </div>
+
+    <!-- Budget -->
+    <div id="tab-budget" class="tab-panel">
+      <div id="budget-content"></div>
+    </div>
+
+    <!-- Qty -->
+    <div id="tab-qty" class="tab-panel">
+      <div id="qty-content"></div>
+    </div>
+
+    <!-- Tasks -->
+    <div id="tab-tasks" class="tab-panel">
+      <div class="filter-bar" id="task-filters"></div>
+      <div id="tasks-list"></div>
+      <div id="tasks-summary"></div>
+    </div>
+
+  </main>
+
+  <!-- Tab Bar -->
+  <nav id="tab-bar">
+    <button class="tab-btn active" onclick="showTab('home')" data-tab="home">
+      <span class="tab-icon">🏠</span>
+      <span>בית</span>
+    </button>
+    <button class="tab-btn" onclick="showTab('guests')" data-tab="guests">
+      <span class="tab-icon">👥</span>
+      <span>אורחים</span>
+    </button>
+    <button class="tab-btn" onclick="showTab('vendors')" data-tab="vendors">
+      <span class="tab-icon">🏢</span>
+      <span>ספקים</span>
+    </button>
+    <button class="tab-btn" onclick="showTab('budget')" data-tab="budget">
+      <span class="tab-icon">💰</span>
+      <span>תקציב</span>
+    </button>
+    <button class="tab-btn" onclick="showTab('qty')" data-tab="qty">
+      <span class="tab-icon">📦</span>
+      <span>כמויות</span>
+    </button>
+    <button class="tab-btn" onclick="showTab('tasks')" data-tab="tasks">
+      <span class="tab-icon">✅</span>
+      <span>משימות</span>
+    </button>
+  </nav>
+
+  <!-- FAB -->
+  <button id="fab" onclick="fabAction()">＋</button>
+
+  <!-- Modal -->
+  <div id="modal-overlay" onclick="overlayClick(event)">
+    <div id="modal">
+      <div class="modal-handle"></div>
+      <div class="modal-header">
+        <div class="modal-title" id="modal-title"></div>
+        <button class="modal-close" onclick="closeModal()">✕</button>
+      </div>
+      <div class="modal-body" id="modal-body"></div>
+      <div class="modal-actions" id="modal-actions"></div>
+    </div>
+  </div>
+
+  <!-- Toast -->
+  <div id="toast"></div>
+
+  <!-- Hidden file input for import -->
+  <input type="file" id="import-input" accept=".json" style="display:none" onchange="importData(event)">
+
+</div>
+
+<script>
+/* ══════════════════════════════════════
+   STATE & PERSISTENCE
+══════════════════════════════════════ */
+const STORAGE_KEY = 'https://supabase.com/dashboard/sign-in?returnTo=%2Forg';
+
+const DEFAULT_QTY_ITEMS = [
+  { id: 'q1', name: 'מנות ראשונות', icon: '🥗', perPerson: 1, desc: 'מנה לאורח' },
+  { id: 'q2', name: 'מנות עיקריות', icon: '🍽️', perPerson: 1, desc: 'מנה לאורח' },
+  { id: 'q3', name: 'קינוחים',      icon: '🍰', perPerson: 1.2, desc: 'מנה לאורח' },
+  { id: 'q4', name: 'שתיה קלה',    icon: '🥤', perPerson: 2, desc: 'בקבוקים לאורח' },
+  { id: 'q5', name: 'בקבוקי יין',  icon: '🍷', perPerson: 0.3, desc: 'בקבוקים לאורח' },
+  { id: 'q6', name: 'כוסות בירה',  icon: '🍺', perPerson: 0.5, desc: 'כוסות לאורח' },
+  { id: 'q7', name: 'לחמניות',     icon: '🍞', perPerson: 1.5, desc: 'יחידות לאורח' },
+  { id: 'q8', name: 'שולחנות',     icon: '🪑', perPerson: 0.1, desc: 'שולחן לאורחים' },
+];
+
+let state = {
+  event: { name: 'האירוע שלי', date: '', totalBudget: 0 },
+  guests: [],
+  vendors: [],
+  tasks: [],
+  qtyItems: []
+};
+
+let activeTab = 'home';
+let guestFilter = 'all';
+let vendorFilter = 'all';
+let taskFilter = 'all';
+
+function generateId() {
+  return Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+}
+
+let saveTimer = null;
+function save() {
+  try { localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); } catch(e) {}
+  lastSyncTime = Date.now();
+  clearTimeout(saveTimer);
+  saveTimer = setTimeout(() => pushToSupabase(), 800);
+}
+
+function load() {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      state = {
+        event: { name: 'האירוע שלי', date: '', totalBudget: 0, ...(parsed.event || {}) },
+        guests: parsed.guests || [],
+        vendors: parsed.vendors || [],
+        tasks: parsed.tasks || [],
+        qtyItems: (parsed.qtyItems && parsed.qtyItems.length) ? parsed.qtyItems : DEFAULT_QTY_ITEMS
+      };
+    } else {
+      state.qtyItems = DEFAULT_QTY_ITEMS;
+    }
+  } catch(e) {
+    state.qtyItems = DEFAULT_QTY_ITEMS;
+  }
+}
+
+/* ══════════════════════════════════════
+   HELPERS
+══════════════════════════════════════ */
+const ADULT_PRICE = 150;
+const CHILD_PRICE = 35;
+
+function fmt(n) {
+  return (n || 0).toLocaleString('he-IL');
+}
+function fmtDate(d) {
+  if (!d) return '';
+  const [y, m, day] = d.split('-');
+  return `${day}.${m}.${y}`;
+}
+function guestAdults(g) {
+  return g.adults !== undefined ? (g.adults || 0) : (g.seats || 1);
+}
+function guestChildren(g) {
+  return g.children || 0;
+}
+function guestSeats(g) {
+  return guestAdults(g) + guestChildren(g);
+}
+function guestFoodCost(g) {
+  return guestAdults(g) * ADULT_PRICE + guestChildren(g) * CHILD_PRICE;
+}
+function confirmedSeats() {
+  return state.guests
+    .filter(g => g.status === 'confirmed')
+    .reduce((s, g) => s + guestSeats(g), 0);
+}
+function totalSeats() {
+  return state.guests.reduce((s, g) => s + guestSeats(g), 0);
+}
+function totalFoodCost(guestsArr) {
+  return (guestsArr || state.guests)
+    .filter(g => g.status === 'confirmed')
+    .reduce((s, g) => s + guestFoodCost(g), 0);
+}
+
+const GROUP_LABELS = { family: 'משפחה', friends: 'חברים', work: 'עבודה', other: 'אחר' };
+const STATUS_LABELS = { confirmed: 'מאושר', pending: 'ממתין', declined: 'סירב' };
+const CATEGORY_LABELS = { venue: 'אולם', catering: 'קייטרינג', photo: 'צילום', music: 'מוזיקה', decor: 'עיצוב', other: 'אחר' };
+const VENDOR_STATUS_LABELS = { pending: 'ממתין', confirmed: 'מאושר', paid: 'שולם' };
+
+/* ══════════════════════════════════════
+   UI CORE
+══════════════════════════════════════ */
+function showTab(name) {
+  activeTab = name;
+  document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+  document.getElementById('tab-' + name).classList.add('active');
+  document.querySelectorAll('.tab-btn').forEach(b => {
+    b.classList.toggle('active', b.dataset.tab === name);
+  });
+  updateFAB();
+  renderTab(name);
+}
+
+function renderTab(name) {
+  if (name === 'home')    renderHome();
+  if (name === 'guests')  renderGuests();
+  if (name === 'vendors') renderVendors();
+  if (name === 'budget')  renderBudget();
+  if (name === 'qty')     renderQty();
+  if (name === 'tasks')   renderTasks();
+}
+
+function renderAll() {
+  updateHeader();
+  renderTab(activeTab);
+}
+
+function updateHeader() {
+  document.getElementById('header-event-name').textContent = state.event.name || 'האירוע שלי';
+  const dateEl = document.getElementById('header-event-date');
+  dateEl.textContent = state.event.date ? fmtDate(state.event.date) : '';
+}
+
+const FAB_ACTIONS = {
+  home: null,
+  guests: () => openGuestForm(),
+  vendors: () => openVendorForm(),
+  budget: null,
+  qty: null,
+  tasks: () => openTaskForm()
+};
+
+function updateFAB() {
+  const fab = document.getElementById('fab');
+  fab.style.display = FAB_ACTIONS[activeTab] ? 'flex' : 'none';
+}
+
+function fabAction() {
+  if (FAB_ACTIONS[activeTab]) FAB_ACTIONS[activeTab]();
+}
+
+let toastTimer = null;
+function showToast(msg, type = 'success') {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.className = 'show ' + type;
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => { t.className = ''; }, 2500);
+}
+
+function openModal(title, bodyHtml, actionsHtml) {
+  document.getElementById('modal-title').textContent = title;
+  document.getElementById('modal-body').innerHTML = bodyHtml;
+  document.getElementById('modal-actions').innerHTML = actionsHtml;
+  const overlay = document.getElementById('modal-overlay');
+  const modal = document.getElementById('modal');
+  overlay.classList.add('open');
+  requestAnimationFrame(() => {
+    overlay.classList.add('visible');
+    modal.classList.add('visible');
+  });
+}
+
+function closeModal() {
+  const overlay = document.getElementById('modal-overlay');
+  const modal = document.getElementById('modal');
+  overlay.classList.remove('visible');
+  modal.classList.remove('visible');
+  setTimeout(() => { overlay.classList.remove('open'); }, 300);
+}
+
+function overlayClick(e) {
+  if (e.target === document.getElementById('modal-overlay')) closeModal();
+}
+
+/* ══════════════════════════════════════
+   HOME TAB
+══════════════════════════════════════ */
+function renderHome() {
+  const confirmed = state.guests.filter(g => g.status === 'confirmed').length;
+  const pending   = state.guests.filter(g => g.status === 'pending').length;
+  const declined  = state.guests.filter(g => g.status === 'declined').length;
+  const confSeats = confirmedSeats();
+  const confAdults = state.guests.filter(g => g.status === 'confirmed').reduce((s, g) => s + guestAdults(g), 0);
+  const confChildren = state.guests.filter(g => g.status === 'confirmed').reduce((s, g) => s + guestChildren(g), 0);
+  const foodCostTotal = totalFoodCost();
+  const totalBudget = state.event.totalBudget || 0;
+  const totalVendorCost = state.vendors.reduce((s, v) => s + (v.price || 0), 0);
+  const totalPaid = state.vendors.reduce((s, v) => s + (v.paid || 0), 0);
+  const remaining = totalBudget - totalVendorCost;
+
+  let countdownHtml = '';
+  if (state.event.date) {
+    const today = new Date(); today.setHours(0,0,0,0);
+    const eventDate = new Date(state.event.date); eventDate.setHours(0,0,0,0);
+    const diff = Math.round((eventDate - today) / 86400000);
+    if (diff > 0) {
+      countdownHtml = `
+        <div class="countdown-card">
+          <div class="countdown-num">${diff}</div>
+          <div class="countdown-label">ימים עד לאירוע</div>
+        </div>`;
+    } else if (diff === 0) {
+      countdownHtml = `
+        <div class="countdown-card">
+          <div class="countdown-num">🎉</div>
+          <div class="countdown-label">היום זה קורה!</div>
+        </div>`;
+    }
+  }
+
+  const upcomingTasks = state.tasks
+    .filter(t => !t.done && t.due)
+    .sort((a, b) => a.due.localeCompare(b.due))
+    .slice(0, 3);
+
+  let tasksHtml = '';
+  if (upcomingTasks.length) {
+    const items = upcomingTasks.map(t => {
+      const today = new Date().toISOString().split('T')[0];
+      const overdue = t.due < today;
+      return `<div style="display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid var(--border);">
+        <span style="font-size:18px">${overdue ? '⚠️' : '📋'}</span>
+        <div style="flex:1">
+          <div style="font-size:14px;color:var(--text-dark);font-weight:500">${esc(t.text)}</div>
+          <div style="font-size:12px;color:${overdue ? 'var(--danger)' : 'var(--text-light)'}">${fmtDate(t.due)}</div>
+        </div>
+      </div>`;
+    }).join('');
+    tasksHtml = `
+      <div class="card" style="margin-bottom:12px">
+        <div class="section-title" style="margin-bottom:8px">משימות קרובות</div>
+        ${items}
+      </div>`;
+  }
+
+  const budgetPct = totalBudget ? Math.min(100, Math.round(totalVendorCost / totalBudget * 100)) : 0;
+  const budgetColor = budgetPct > 90 ? 'danger' : budgetPct > 70 ? '' : 'success';
+
+  document.getElementById('home-content').innerHTML = `
+    ${countdownHtml}
+    <div class="home-stat-grid">
+      <div class="stat-card">
+        <div class="stat-icon">✅</div>
+        <div class="stat-num">${confSeats}</div>
+        <div class="stat-label">מקומות מאושרים</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-icon">⏳</div>
+        <div class="stat-num">${pending}</div>
+        <div class="stat-label">ממתינים לאישור</div>
+      </div>
+      <div class="stat-card gold">
+        <div class="stat-icon">👨</div>
+        <div class="stat-num">${confAdults}</div>
+        <div class="stat-label">מבוגרים מאושרים</div>
+      </div>
+      <div class="stat-card gold">
+        <div class="stat-icon">🧒</div>
+        <div class="stat-num">${confChildren}</div>
+        <div class="stat-label">ילדים מאושרים</div>
+      </div>
+    </div>
+    ${state.guests.length ? `
+    <div class="card" style="margin-bottom:12px;background:var(--gold-pale);border-color:#e8d9a0">
+      <div style="display:flex;align-items:center;justify-content:space-between">
+        <div>
+          <div style="font-size:13px;color:#7a5e1a;font-weight:600">🍽️ עלות אוכל מאושרים</div>
+          <div style="font-size:11px;color:#a0813a;margin-top:2px">${confAdults} מבוגרים × ${ADULT_PRICE}₪ + ${confChildren} ילדים × ${CHILD_PRICE}₪</div>
+        </div>
+        <div style="font-size:22px;font-weight:800;color:var(--navy)">${fmt(foodCostTotal)} ₪</div>
+      </div>
+    </div>` : ''}
+    ${totalBudget ? `
+    <div class="card" style="margin-bottom:12px">
+      <div class="card-row" style="margin-bottom:4px">
+        <span class="section-title">תקציב</span>
+        <span style="font-size:13px;font-weight:600;color:var(--text-mid)">${budgetPct}%</span>
+      </div>
+      <div class="progress-wrap"><div class="progress-fill ${budgetColor}" style="width:${budgetPct}%"></div></div>
+      <div style="display:flex;justify-content:space-between;margin-top:10px">
+        <div style="text-align:center">
+          <div style="font-size:15px;font-weight:700;color:var(--navy)">${fmt(totalVendorCost)} ₪</div>
+          <div style="font-size:11px;color:var(--text-light)">הוקצה לספקים</div>
+        </div>
+        <div style="text-align:center">
+          <div style="font-size:15px;font-weight:700;color:var(--success)">${fmt(totalPaid)} ₪</div>
+          <div style="font-size:11px;color:var(--text-light)">שולם</div>
+        </div>
+        <div style="text-align:center">
+          <div style="font-size:15px;font-weight:700;color:${remaining < 0 ? 'var(--danger)' : 'var(--text-dark)'}">${fmt(Math.abs(remaining))} ₪</div>
+          <div style="font-size:11px;color:var(--text-light)">${remaining < 0 ? 'חריגה' : 'נותר'}</div>
+        </div>
+      </div>
+    </div>` : `
+    <div class="card" style="margin-bottom:12px;text-align:center;padding:20px">
+      <div style="font-size:13px;color:var(--text-light)">הגדר תקציב כולל בהגדרות ⚙️</div>
+    </div>`}
+    ${tasksHtml}
+    ${!state.event.date && !state.guests.length && !state.vendors.length ? `
+    <div class="empty-state" style="padding-top:20px">
+      <div class="empty-icon">🎉</div>
+      <div class="empty-title">ברוכים הבאים!</div>
+      <div class="empty-desc">התחל בהגדרת שם האירוע, תאריך ותקציב — לחץ על ⚙️ למעלה.</div>
+    </div>` : ''}
+  `;
+}
+
+/* ══════════════════════════════════════
+   GUESTS TAB
+══════════════════════════════════════ */
+function renderGuests() {
+  const filters = [
+    { id: 'all', label: 'הכל' },
+    { id: 'family', label: '👨‍👩‍👧 משפחה' },
+    { id: 'friends', label: '🤝 חברים' },
+    { id: 'work', label: '💼 עבודה' },
+    { id: 'other', label: '✨ אחר' }
+  ];
+  document.getElementById('guest-filters').innerHTML = filters.map(f =>
+    `<button class="filter-chip ${guestFilter === f.id ? 'active' : ''}" onclick="setGuestFilter('${f.id}')">${f.label}</button>`
+  ).join('');
+
+  const filtered = guestFilter === 'all'
+    ? state.guests
+    : state.guests.filter(g => g.group === guestFilter);
+
+  if (!filtered.length) {
+    document.getElementById('guests-list').innerHTML = `
+      <div class="empty-state">
+        <div class="empty-icon">👥</div>
+        <div class="empty-title">אין אורחים עדיין</div>
+        <div class="empty-desc">לחץ על ＋ למטה להוספת אורח ראשון</div>
+      </div>`;
+    document.getElementById('guests-summary').innerHTML = '';
+    return;
+  }
+
+  const html = filtered.map(g => {
+    const adults = guestAdults(g);
+    const children = guestChildren(g);
+    const cost = guestFoodCost(g);
+    const seatsLabel = adults === 0
+      ? `${children} ילדים`
+      : children === 0
+        ? `${adults} מבוגרים`
+        : `${adults} מבוגרים + ${children} ילדים`;
+    return `<div class="card">
+      <div class="card-row">
+        <div>
+          <div class="card-title">${esc(g.name)}</div>
+          ${g.phone ? `<div class="card-sub">${esc(g.phone)}</div>` : ''}
+        </div>
+        <span class="badge badge-${g.status}">${STATUS_LABELS[g.status] || g.status}</span>
+      </div>
+      <div style="display:flex;gap:8px;margin-top:10px;flex-wrap:wrap;align-items:center">
+        <span class="badge badge-${g.group}">${GROUP_LABELS[g.group] || g.group}</span>
+        <span style="font-size:12px;color:var(--text-mid)">👥 ${seatsLabel}</span>
+        <span style="font-size:12px;color:var(--gold);font-weight:700">🍽️ ${fmt(cost)} ₪</span>
+      </div>
+      ${g.members?.length ? `
+      <div style="margin-top:10px;display:flex;flex-wrap:wrap;gap:2px">
+        ${g.members.map(m => `<span class="member-chip ${m.type}">${m.type === 'adult' ? '👨' : '🧒'} ${esc(m.name)}</span>`).join('')}
+      </div>` : ''}
+      ${g.notes ? `<div style="margin-top:8px;font-size:12px;color:var(--text-light);font-style:italic">${esc(g.notes)}</div>` : ''}
+      <div class="card-actions">
+        ${g.phone ? `<a href="tel:${esc(g.phone)}" class="btn btn-ghost btn-sm">📞 התקשר</a>` : ''}
+        <button class="btn btn-ghost btn-sm" onclick="openGuestForm('${g.id}')">✏️ עריכה</button>
+        <button class="btn btn-danger btn-sm" onclick="deleteGuest('${g.id}')">🗑️</button>
+      </div>
+    </div>`;
+  }).join('');
+
+  document.getElementById('guests-list').innerHTML = html;
+
+  const total = filtered.length;
+  const seats = filtered.reduce((s, g) => s + guestSeats(g), 0);
+  const totalAdults = filtered.reduce((s, g) => s + guestAdults(g), 0);
+  const totalChildren = filtered.reduce((s, g) => s + guestChildren(g), 0);
+  const conf = filtered.filter(g => g.status === 'confirmed').length;
+  const foodCost = totalFoodCost(filtered);
+  document.getElementById('guests-summary').innerHTML = `
+    <div style="background:var(--navy);border-radius:var(--radius);padding:14px 16px;margin-top:4px">
+      <div style="display:flex;justify-content:space-around;text-align:center">
+        <div>
+          <div style="font-size:20px;font-weight:800;color:var(--white)">${seats}</div>
+          <div style="font-size:11px;color:var(--gold-light);margin-top:2px">מקומות</div>
+        </div>
+        <div>
+          <div style="font-size:20px;font-weight:800;color:var(--white)">${totalAdults}</div>
+          <div style="font-size:11px;color:var(--gold-light);margin-top:2px">מבוגרים</div>
+        </div>
+        <div>
+          <div style="font-size:20px;font-weight:800;color:var(--white)">${totalChildren}</div>
+          <div style="font-size:11px;color:var(--gold-light);margin-top:2px">ילדים</div>
+        </div>
+        <div>
+          <div style="font-size:20px;font-weight:800;color:var(--gold-light)">${fmt(foodCost)} ₪</div>
+          <div style="font-size:11px;color:var(--gold-light);margin-top:2px">עלות אוכל מאושרים</div>
+        </div>
+      </div>
+    </div>`;
+}
+
+function setGuestFilter(f) {
+  guestFilter = f;
+  renderGuests();
+}
+
+function openGuestForm(id) {
+  const g = id ? state.guests.find(x => x.id === id) : null;
+  const title = g ? 'עריכת אורח' : 'הוספת אורח';
+  const curAdults   = g ? guestAdults(g)   : 1;
+  const curChildren = g ? guestChildren(g) : 0;
+  const curType = g
+    ? (guestAdults(g) === 0 ? 'kids' : guestChildren(g) === 0 ? 'adults' : 'family')
+    : 'family';
+
+  const body = `
+    <div style="display:flex;gap:8px;margin-bottom:16px">
+      <button type="button" id="gtype-family" onclick="setGuestType('family')"
+        class="filter-chip flex:1 ${curType==='family'?'active':''}"
+        style="flex:1;justify-content:center">👨‍👩‍👧 משפחה</button>
+      <button type="button" id="gtype-adults" onclick="setGuestType('adults')"
+        class="filter-chip ${curType==='adults'?'active':''}"
+        style="flex:1;justify-content:center">👨 מבוגרים</button>
+      <button type="button" id="gtype-kids" onclick="setGuestType('kids')"
+        class="filter-chip ${curType==='kids'?'active':''}"
+        style="flex:1;justify-content:center">🧒 ילדים</button>
+    </div>
+    <div class="form-group">
+      <label class="form-label" id="g-name-label">שם *</label>
+      <input class="form-input" id="g-name" value="${esc(g?.name || '')}" placeholder="שם האורח / שם המשפחה">
+    </div>
+    <div class="form-group">
+      <label class="form-label">טלפון</label>
+      <input class="form-input" id="g-phone" type="tel" value="${esc(g?.phone || '')}" placeholder="05X-XXXXXXX">
+    </div>
+    <div class="form-row">
+      <div class="form-group" id="field-adults">
+        <label class="form-label">👨 מבוגרים <span style="font-weight:400;color:var(--text-light)">(${ADULT_PRICE} ₪)</span></label>
+        <input class="form-input" id="g-adults" type="number" min="0" value="${curAdults}" oninput="updateGuestCostPreview()">
+      </div>
+      <div class="form-group" id="field-children">
+        <label class="form-label">🧒 ילדים <span style="font-weight:400;color:var(--text-light)">(${CHILD_PRICE} ₪)</span></label>
+        <input class="form-input" id="g-children" type="number" min="0" value="${curChildren}" oninput="updateGuestCostPreview()">
+      </div>
+    </div>
+    <div id="guest-cost-preview" style="background:var(--gold-pale);border:1px solid #e8d9a0;border-radius:var(--radius-sm);padding:10px 14px;margin-bottom:16px;display:flex;justify-content:space-between;align-items:center">
+      <span style="font-size:13px;color:#7a5e1a">עלות אוכל משוערת</span>
+      <span id="guest-cost-num" style="font-size:16px;font-weight:800;color:var(--navy)">—</span>
+    </div>
+    <div class="members-section">
+      <div class="members-header">
+        <label class="form-label" style="margin:0">👤 חברי הקבוצה <span style="font-weight:400;color:var(--text-light)">(אופציונלי)</span></label>
+        <button type="button" class="btn btn-ghost btn-sm" onclick="syncMembersToCount()">🔄 סנכרן לפי כמויות</button>
+      </div>
+      <div id="members-rows">
+        ${(g?.members || []).map(m => memberRowHtml(m.name, m.type)).join('')}
+      </div>
+      <div style="display:flex;gap:8px">
+        <button type="button" class="btn btn-ghost btn-sm" onclick="addMemberRow('adult')" style="flex:1">＋ מבוגר</button>
+        <button type="button" class="btn btn-ghost btn-sm" onclick="addMemberRow('child')" style="flex:1">＋ ילד</button>
+      </div>
+    </div>
+    <div class="form-row">
+      <div class="form-group">
+        <label class="form-label">קבוצה</label>
+        <select class="form-select" id="g-group">
+          ${['family','friends','work','other'].map(v => `<option value="${v}" ${(g?.group||'family')===v?'selected':''}>${GROUP_LABELS[v]}</option>`).join('')}
+        </select>
+      </div>
+      <div class="form-group">
+        <label class="form-label">סטטוס</label>
+        <select class="form-select" id="g-status">
+          ${['pending','confirmed','declined'].map(v => `<option value="${v}" ${(g?.status||'pending')===v?'selected':''}>${STATUS_LABELS[v]}</option>`).join('')}
+        </select>
+      </div>
+    </div>
+    <div class="form-group">
+      <label class="form-label">הערות</label>
+      <textarea class="form-textarea" id="g-notes" placeholder="הערות נוספות...">${esc(g?.notes || '')}</textarea>
+    </div>`;
+  const actions = `
+    <button class="btn btn-ghost" onclick="closeModal()">ביטול</button>
+    <button class="btn btn-primary" onclick="saveGuest('${id || ''}')">שמירה</button>`;
+  openModal(title, body, actions);
+  setTimeout(() => {
+    document.getElementById('g-name').focus();
+    setGuestType(curType, false);
+    updateGuestCostPreview();
+  }, 350);
+}
+
+function setGuestType(type, resetValues = true) {
+  const fa = document.getElementById('field-adults');
+  const fc = document.getElementById('field-children');
+  const ia = document.getElementById('g-adults');
+  const ic = document.getElementById('g-children');
+  const nameLabel = document.getElementById('g-name-label');
+  ['family','adults','kids'].forEach(t => {
+    document.getElementById('gtype-' + t)?.classList.toggle('active', t === type);
+  });
+  if (type === 'family') {
+    fa.style.display = '';
+    fc.style.display = '';
+    if (resetValues) { ia.value = 2; ic.value = 1; }
+    if (nameLabel) nameLabel.textContent = 'שם משפחה *';
+  } else if (type === 'adults') {
+    fa.style.display = '';
+    fc.style.display = 'none';
+    if (resetValues) { ia.value = 1; ic.value = 0; }
+    if (nameLabel) nameLabel.textContent = 'שם *';
+  } else {
+    fa.style.display = 'none';
+    fc.style.display = '';
+    if (resetValues) { ia.value = 0; ic.value = 1; }
+    if (nameLabel) nameLabel.textContent = 'שם *';
+  }
+  updateGuestCostPreview();
+}
+
+function memberRowHtml(name, type) {
+  const isAdult = type !== 'child';
+  return `<div class="member-row">
+    <input type="text" class="form-input member-name" placeholder="${isAdult ? 'שם מבוגר' : 'שם ילד'}" value="${esc(name || '')}">
+    <button type="button" class="member-type-btn ${isAdult ? 'adult' : 'child'}"
+      data-type="${isAdult ? 'adult' : 'child'}"
+      onclick="toggleMemberType(this)">${isAdult ? '👨 מבוגר' : '🧒 ילד'}</button>
+    <button type="button" class="member-del" onclick="this.closest('.member-row').remove()">✕</button>
+  </div>`;
+}
+
+function addMemberRow(type) {
+  const container = document.getElementById('members-rows');
+  if (!container) return;
+  const div = document.createElement('div');
+  div.innerHTML = memberRowHtml('', type);
+  container.appendChild(div.firstChild);
+  container.lastElementChild?.querySelector('.member-name')?.focus();
+}
+
+function toggleMemberType(btn) {
+  const isAdult = btn.dataset.type === 'adult';
+  btn.dataset.type = isAdult ? 'child' : 'adult';
+  btn.className = 'member-type-btn ' + (isAdult ? 'child' : 'adult');
+  btn.textContent = isAdult ? '🧒 ילד' : '👨 מבוגר';
+  btn.closest('.member-row').querySelector('.member-name').placeholder = isAdult ? 'שם ילד' : 'שם מבוגר';
+}
+
+function syncMembersToCount() {
+  const adults   = parseInt(document.getElementById('g-adults')?.value)   || 0;
+  const children = parseInt(document.getElementById('g-children')?.value) || 0;
+  const container = document.getElementById('members-rows');
+  if (!container) return;
+  const existing = Array.from(container.querySelectorAll('.member-row')).map(row => ({
+    name: row.querySelector('.member-name').value,
+    type: row.querySelector('.member-type-btn').dataset.type
+  }));
+  const existAdults   = existing.filter(m => m.type === 'adult');
+  const existChildren = existing.filter(m => m.type === 'child');
+  const newAdults   = Array.from({ length: adults },   (_, i) => ({ name: existAdults[i]?.name   || '', type: 'adult' }));
+  const newChildren = Array.from({ length: children }, (_, i) => ({ name: existChildren[i]?.name || '', type: 'child' }));
+  container.innerHTML = [...newAdults, ...newChildren].map(m => memberRowHtml(m.name, m.type)).join('');
+}
+
+function getMembersFromForm() {
+  const rows = document.querySelectorAll('#members-rows .member-row');
+  return Array.from(rows)
+    .map(row => ({
+      name: row.querySelector('.member-name').value.trim(),
+      type: row.querySelector('.member-type-btn').dataset.type
+    }))
+    .filter(m => m.name);
+}
+
+function updateGuestCostPreview() {
+  const adults = parseInt(document.getElementById('g-adults')?.value) || 0;
+  const children = parseInt(document.getElementById('g-children')?.value) || 0;
+  const cost = adults * ADULT_PRICE + children * CHILD_PRICE;
+  const el = document.getElementById('guest-cost-num');
+  if (el) el.textContent = fmt(cost) + ' ₪';
+}
+
+function saveGuest(id) {
+  const name = document.getElementById('g-name').value.trim();
+  if (!name) { showToast('יש להזין שם אורח', 'error'); return; }
+  const adults = parseInt(document.getElementById('g-adults').value) || 0;
+  const children = parseInt(document.getElementById('g-children').value) || 0;
+  if (adults + children === 0) { showToast('יש להזין לפחות מבוגר אחד', 'error'); return; }
+  const guest = {
+    id: id || generateId(),
+    name,
+    phone: document.getElementById('g-phone').value.trim(),
+    adults,
+    children,
+    members: getMembersFromForm(),
+    group: document.getElementById('g-group').value,
+    status: document.getElementById('g-status').value,
+    notes: document.getElementById('g-notes').value.trim()
+  };
+  if (id) {
+    const i = state.guests.findIndex(g => g.id === id);
+    if (i !== -1) state.guests[i] = guest;
+  } else {
+    state.guests.push(guest);
+  }
+  save();
+  closeModal();
+  renderGuests();
+  showToast(id ? 'האורח עודכן' : 'האורח נוסף', 'success');
+}
+
+function deleteGuest(id) {
+  const g = state.guests.find(x => x.id === id);
+  if (!g) return;
+  if (!confirm(`למחוק את ${g.name}?`)) return;
+  state.guests = state.guests.filter(x => x.id !== id);
+  save();
+  renderGuests();
+  showToast('האורח נמחק');
+}
+
+/* ══════════════════════════════════════
+   VENDORS TAB
+══════════════════════════════════════ */
+function renderVendors() {
+  const filters = [
+    { id: 'all', label: 'הכל' },
+    { id: 'venue', label: '🏛️ אולם' },
+    { id: 'catering', label: '🍽️ קייטרינג' },
+    { id: 'photo', label: '📷 צילום' },
+    { id: 'music', label: '🎵 מוזיקה' },
+    { id: 'decor', label: '🌸 עיצוב' },
+    { id: 'other', label: '✨ אחר' }
+  ];
+  document.getElementById('vendor-filters').innerHTML = filters.map(f =>
+    `<button class="filter-chip ${vendorFilter === f.id ? 'active' : ''}" onclick="setVendorFilter('${f.id}')">${f.label}</button>`
+  ).join('');
+
+  const filtered = vendorFilter === 'all'
+    ? state.vendors
+    : state.vendors.filter(v => v.category === vendorFilter);
+
+  if (!filtered.length) {
+    document.getElementById('vendors-list').innerHTML = `
+      <div class="empty-state">
+        <div class="empty-icon">🏢</div>
+        <div class="empty-title">אין ספקים עדיין</div>
+        <div class="empty-desc">לחץ על ＋ להוספת ספק ראשון</div>
+      </div>`;
+    return;
+  }
+
+  const html = filtered.map(v => {
+    const price = v.price || 0;
+    const paid = v.paid || 0;
+    const pct = price ? Math.min(100, Math.round(paid / price * 100)) : 0;
+    return `<div class="card">
+      <div class="card-row">
+        <div>
+          <div class="card-title">${esc(v.name)}</div>
+          ${v.phone ? `<div class="card-sub">${esc(v.phone)}</div>` : ''}
+        </div>
+        <span class="badge badge-${v.status}">${VENDOR_STATUS_LABELS[v.status] || v.status}</span>
+      </div>
+      <div style="display:flex;gap:8px;margin-top:8px;align-items:center;flex-wrap:wrap">
+        <span class="badge badge-${v.category}">${CATEGORY_LABELS[v.category] || v.category}</span>
+        <span style="font-size:13px;color:var(--text-mid);font-weight:600">${fmt(price)} ₪</span>
+        ${v.notes ? `<span style="font-size:12px;color:var(--text-light);font-style:italic;flex:1">${esc(v.notes)}</span>` : ''}
+      </div>
+      ${price ? `<div class="vendor-progress-row">
+        <span class="vendor-progress-label">שולם ${fmt(paid)} ₪</span>
+        <div class="vendor-progress-wrap"><div class="vendor-progress-fill" style="width:${pct}%"></div></div>
+        <span style="font-size:12px;color:var(--text-light)">${pct}%</span>
+      </div>` : ''}
+      <div class="card-actions">
+        ${v.phone ? `<a href="tel:${esc(v.phone)}" class="btn btn-ghost btn-sm">📞 התקשר</a>` : ''}
+        <button class="btn btn-ghost btn-sm" onclick="openVendorForm('${v.id}')">✏️ עריכה</button>
+        <button class="btn btn-danger btn-sm" onclick="deleteVendor('${v.id}')">🗑️</button>
+      </div>
+    </div>`;
+  }).join('');
+
+  document.getElementById('vendors-list').innerHTML = html;
+}
+
+function setVendorFilter(f) {
+  vendorFilter = f;
+  renderVendors();
+}
+
+function openVendorForm(id) {
+  const v = id ? state.vendors.find(x => x.id === id) : null;
+  const title = v ? 'עריכת ספק' : 'הוספת ספק';
+  const body = `
+    <div class="form-group">
+      <label class="form-label">שם הספק *</label>
+      <input class="form-input" id="v-name" value="${esc(v?.name || '')}" placeholder="שם הספק או העסק">
+    </div>
+    <div class="form-row">
+      <div class="form-group">
+        <label class="form-label">קטגוריה</label>
+        <select class="form-select" id="v-category">
+          ${['venue','catering','photo','music','decor','other'].map(c => `<option value="${c}" ${(v?.category||'other')===c?'selected':''}>${CATEGORY_LABELS[c]}</option>`).join('')}
+        </select>
+      </div>
+      <div class="form-group">
+        <label class="form-label">סטטוס</label>
+        <select class="form-select" id="v-status">
+          ${['pending','confirmed','paid'].map(s => `<option value="${s}" ${(v?.status||'pending')===s?'selected':''}>${VENDOR_STATUS_LABELS[s]}</option>`).join('')}
+        </select>
+      </div>
+    </div>
+    <div class="form-row">
+      <div class="form-group">
+        <label class="form-label">מחיר כולל (₪)</label>
+        <input class="form-input" id="v-price" type="number" min="0" value="${v?.price || ''}">
+      </div>
+      <div class="form-group">
+        <label class="form-label">שולם (₪)</label>
+        <input class="form-input" id="v-paid" type="number" min="0" value="${v?.paid || ''}">
+      </div>
+    </div>
+    <div class="form-group">
+      <label class="form-label">טלפון</label>
+      <input class="form-input" id="v-phone" type="tel" value="${esc(v?.phone || '')}" placeholder="05X-XXXXXXX">
+    </div>
+    <div class="form-group">
+      <label class="form-label">הערות</label>
+      <textarea class="form-textarea" id="v-notes" placeholder="הערות, פרטי חוזה...">${esc(v?.notes || '')}</textarea>
+    </div>`;
+  const actions = `
+    <button class="btn btn-ghost" onclick="closeModal()">ביטול</button>
+    <button class="btn btn-primary" onclick="saveVendor('${id || ''}')">שמירה</button>`;
+  openModal(title, body, actions);
+  setTimeout(() => document.getElementById('v-name').focus(), 350);
+}
+
+function saveVendor(id) {
+  const name = document.getElementById('v-name').value.trim();
+  if (!name) { showToast('יש להזין שם ספק', 'error'); return; }
+  const vendor = {
+    id: id || generateId(),
+    name,
+    category: document.getElementById('v-category').value,
+    status: document.getElementById('v-status').value,
+    price: parseFloat(document.getElementById('v-price').value) || 0,
+    paid: parseFloat(document.getElementById('v-paid').value) || 0,
+    phone: document.getElementById('v-phone').value.trim(),
+    notes: document.getElementById('v-notes').value.trim()
+  };
+  if (id) {
+    const i = state.vendors.findIndex(v => v.id === id);
+    if (i !== -1) state.vendors[i] = vendor;
+  } else {
+    state.vendors.push(vendor);
+  }
+  save();
+  closeModal();
+  renderVendors();
+  showToast(id ? 'הספק עודכן' : 'הספק נוסף', 'success');
+}
+
+function deleteVendor(id) {
+  const v = state.vendors.find(x => x.id === id);
+  if (!v) return;
+  if (!confirm(`למחוק את ${v.name}?`)) return;
+  state.vendors = state.vendors.filter(x => x.id !== id);
+  save();
+  renderVendors();
+  showToast('הספק נמחק');
+}
+
+/* ══════════════════════════════════════
+   BUDGET TAB
+══════════════════════════════════════ */
+function renderBudget() {
+  const totalBudget = state.event.totalBudget || 0;
+  const vendors = state.vendors;
+  const totalAllocated = vendors.reduce((s, v) => s + (v.price || 0), 0);
+  const totalPaid = vendors.reduce((s, v) => s + (v.paid || 0), 0);
+  const remaining = totalBudget - totalAllocated;
+  const pct = totalBudget ? Math.min(100, Math.round(totalAllocated / totalBudget * 100)) : 0;
+  const pctColor = pct > 90 ? 'danger' : '';
+
+  let overviewHtml = `
+    <div class="budget-overview">
+      <div class="budget-overview-row">
+        <span class="budget-total-label">תקציב כולל</span>
+        <span class="budget-total-num">${fmt(totalBudget)} ₪</span>
+      </div>
+      <div class="progress-wrap"><div class="progress-fill ${pctColor}" style="width:${pct}%"></div></div>
+      <div class="budget-cols">
+        <div class="budget-col">
+          <div class="budget-col-num">${fmt(totalAllocated)} ₪</div>
+          <div class="budget-col-label">הוקצה</div>
+        </div>
+        <div class="budget-col">
+          <div class="budget-col-num">${fmt(totalPaid)} ₪</div>
+          <div class="budget-col-label">שולם</div>
+        </div>
+        <div class="budget-col">
+          <div class="budget-col-num" style="${remaining < 0 ? 'color:var(--danger-pale)' : ''}">${fmt(Math.abs(remaining))} ₪</div>
+          <div class="budget-col-label">${remaining < 0 ? 'חריגה' : 'נותר'}</div>
+        </div>
+      </div>
+    </div>`;
+
+  if (!totalBudget) {
+    overviewHtml = `
+      <div class="card" style="text-align:center;padding:24px">
+        <div style="font-size:32px;margin-bottom:12px">💰</div>
+        <div style="font-size:15px;font-weight:600;margin-bottom:6px">לא הוגדר תקציב</div>
+        <div style="font-size:13px;color:var(--text-light)">הגדר תקציב כולל בהגדרות ⚙️</div>
+      </div>`;
+  }
+
+  let tableHtml = '';
+  if (vendors.length) {
+    const rows = vendors.map(v => {
+      const rem = (v.price || 0) - (v.paid || 0);
+      return `<tr>
+        <td><strong>${esc(v.name)}</strong><br><span style="font-size:11px;color:var(--text-light)">${CATEGORY_LABELS[v.category]}</span></td>
+        <td>${fmt(v.price || 0)}</td>
+        <td style="color:var(--success)">${fmt(v.paid || 0)}</td>
+        <td style="color:${rem < 0 ? 'var(--danger)' : 'var(--text-dark)'}">${fmt(rem)}</td>
+      </tr>`;
+    }).join('');
+    tableHtml = `
+      <div class="card" style="padding:12px">
+        <table class="budget-table">
+          <thead><tr>
+            <th>ספק</th><th>מחיר</th><th>שולם</th><th>נותר</th>
+          </tr></thead>
+          <tbody>${rows}</tbody>
+          <tfoot><tr class="total-row">
+            <td>סה"כ</td>
+            <td>${fmt(totalAllocated)}</td>
+            <td>${fmt(totalPaid)}</td>
+            <td>${fmt(totalAllocated - totalPaid)}</td>
+          </tr></tfoot>
+        </table>
+      </div>`;
+  } else {
+    tableHtml = `
+      <div class="empty-state">
+        <div class="empty-icon">📊</div>
+        <div class="empty-title">אין ספקים עדיין</div>
+        <div class="empty-desc">הוסף ספקים בלשונית ספקים והם יופיעו כאן</div>
+      </div>`;
+  }
+
+  document.getElementById('budget-content').innerHTML = overviewHtml + tableHtml;
+}
+
+/* ══════════════════════════════════════
+   QTY TAB
+══════════════════════════════════════ */
+function renderQty() {
+  const seats = confirmedSeats();
+  const baseInfo = `<div class="qty-base-info">
+    בסיס חישוב: <strong>${seats}</strong> אורחים מאושרים
+    ${seats === 0 ? ' — אשר אורחים כדי לקבל חישובים' : ''}
+  </div>`;
+
+  const items = state.qtyItems.map(item => {
+    const qty = seats ? Math.ceil(seats * item.perPerson) : 0;
+    return `<div class="qty-card">
+      <div class="qty-icon">${item.icon}</div>
+      <div class="qty-info">
+        <div class="qty-name">${esc(item.name)}</div>
+        <div class="qty-per">${item.perPerson} ${item.desc || 'לאורח'}</div>
+      </div>
+      <div>
+        <div class="qty-result">${qty}</div>
+        <div class="qty-unit">יחידות</div>
+      </div>
+      <button class="qty-edit-btn" onclick="editQtyItem('${item.id}')">✏️</button>
+    </div>`;
+  }).join('');
+
+  document.getElementById('qty-content').innerHTML = baseInfo + (items || `<div class="empty-state"><div class="empty-icon">📦</div><div class="empty-title">אין פריטים</div></div>`);
+}
+
+function editQtyItem(id) {
+  const item = state.qtyItems.find(x => x.id === id);
+  if (!item) return;
+  const body = `
+    <div style="text-align:center;margin-bottom:20px">
+      <div style="font-size:40px;margin-bottom:8px">${item.icon}</div>
+      <div style="font-size:17px;font-weight:700">${esc(item.name)}</div>
+    </div>
+    <div class="form-group">
+      <label class="form-label">כמות לאורח</label>
+      <input class="form-input" id="qty-per" type="number" min="0.01" step="0.01" value="${item.perPerson}">
+    </div>`;
+  const actions = `
+    <button class="btn btn-ghost" onclick="closeModal()">ביטול</button>
+    <button class="btn btn-primary" onclick="saveQtyItem('${id}')">שמירה</button>`;
+  openModal('עריכת כמות', body, actions);
+}
+
+function saveQtyItem(id) {
+  const per = parseFloat(document.getElementById('qty-per').value);
+  if (!per || per <= 0) { showToast('כמות לא תקינה', 'error'); return; }
+  const i = state.qtyItems.findIndex(x => x.id === id);
+  if (i !== -1) state.qtyItems[i].perPerson = per;
+  save();
+  closeModal();
+  renderQty();
+  showToast('הכמות עודכנה', 'success');
+}
+
+/* ══════════════════════════════════════
+   TASKS TAB
+══════════════════════════════════════ */
+function renderTasks() {
+  const filters = [
+    { id: 'all', label: 'הכל' },
+    { id: 'open', label: '📋 פתוחות' },
+    { id: 'done', label: '✅ הושלמו' }
+  ];
+  document.getElementById('task-filters').innerHTML = filters.map(f =>
+    `<button class="filter-chip ${taskFilter === f.id ? 'active' : ''}" onclick="setTaskFilter('${f.id}')">${f.label}</button>`
+  ).join('');
+
+  let filtered = state.tasks;
+  if (taskFilter === 'open') filtered = state.tasks.filter(t => !t.done);
+  if (taskFilter === 'done') filtered = state.tasks.filter(t => t.done);
+
+  filtered = [...filtered].sort((a, b) => {
+    if (a.done !== b.done) return a.done ? 1 : -1;
+    if (a.due && b.due) return a.due.localeCompare(b.due);
+    return a.due ? -1 : (b.due ? 1 : 0);
+  });
+
+  if (!filtered.length) {
+    document.getElementById('tasks-list').innerHTML = `
+      <div class="empty-state">
+        <div class="empty-icon">✅</div>
+        <div class="empty-title">אין משימות</div>
+        <div class="empty-desc">${taskFilter === 'done' ? 'עדיין לא הושלמו משימות' : 'לחץ על ＋ להוספת משימה ראשונה'}</div>
+      </div>`;
+    document.getElementById('tasks-summary').innerHTML = '';
+    return;
+  }
+
+  const today = new Date().toISOString().split('T')[0];
+  const html = filtered.map(t => {
+    const overdue = t.due && t.due < today && !t.done;
+    return `<div class="task-card ${t.done ? 'done' : ''}">
+      <div class="task-checkbox ${t.done ? 'checked' : ''}" onclick="toggleTask('${t.id}')">
+        ${t.done ? '✓' : ''}
+      </div>
+      <div class="task-body" onclick="openTaskForm('${t.id}')">
+        <div class="task-text">${esc(t.text)}</div>
+        ${t.due ? `<div class="task-due ${overdue ? 'overdue' : ''}">${overdue ? '⚠️ ' : ''}${fmtDate(t.due)}</div>` : ''}
+      </div>
+      <button class="task-delete" onclick="deleteTask('${t.id}')">✕</button>
+    </div>`;
+  }).join('');
+
+  document.getElementById('tasks-list').innerHTML = html;
+
+  const total = state.tasks.length;
+  const done = state.tasks.filter(t => t.done).length;
+  document.getElementById('tasks-summary').innerHTML = total ? `
+    <div style="text-align:center;padding:12px;color:var(--text-light);font-size:13px">
+      ${done} מתוך ${total} משימות הושלמו
+      ${total ? `<div class="progress-wrap" style="margin:8px 0 0"><div class="progress-fill success" style="width:${Math.round(done/total*100)}%"></div></div>` : ''}
+    </div>` : '';
+}
+
+function setTaskFilter(f) {
+  taskFilter = f;
+  renderTasks();
+}
+
+function openTaskForm(id) {
+  const t = id ? state.tasks.find(x => x.id === id) : null;
+  const title = t ? 'עריכת משימה' : 'הוספת משימה';
+  const body = `
+    <div class="form-group">
+      <label class="form-label">תיאור המשימה *</label>
+      <textarea class="form-textarea" id="t-text" placeholder="מה צריך לעשות?">${esc(t?.text || '')}</textarea>
+    </div>
+    <div class="form-group">
+      <label class="form-label">תאריך יעד</label>
+      <input class="form-input" id="t-due" type="date" value="${t?.due || ''}">
+    </div>`;
+  const actions = `
+    <button class="btn btn-ghost" onclick="closeModal()">ביטול</button>
+    <button class="btn btn-primary" onclick="saveTask('${id || ''}')">שמירה</button>`;
+  openModal(title, body, actions);
+  setTimeout(() => document.getElementById('t-text').focus(), 350);
+}
+
+function saveTask(id) {
+  const text = document.getElementById('t-text').value.trim();
+  if (!text) { showToast('יש להזין תיאור', 'error'); return; }
+  const task = {
+    id: id || generateId(),
+    text,
+    due: document.getElementById('t-due').value || '',
+    done: id ? (state.tasks.find(x => x.id === id)?.done || false) : false
+  };
+  if (id) {
+    const i = state.tasks.findIndex(t => t.id === id);
+    if (i !== -1) state.tasks[i] = task;
+  } else {
+    state.tasks.push(task);
+  }
+  save();
+  closeModal();
+  renderTasks();
+  showToast(id ? 'המשימה עודכנה' : 'המשימה נוספה', 'success');
+}
+
+function toggleTask(id) {
+  const i = state.tasks.findIndex(t => t.id === id);
+  if (i === -1) return;
+  state.tasks[i].done = !state.tasks[i].done;
+  save();
+  renderTasks();
+  if (state.tasks[i].done) showToast('כל הכבוד! 🎉', 'success');
+}
+
+function deleteTask(id) {
+  const t = state.tasks.find(x => x.id === id);
+  if (!t) return;
+  if (!confirm('למחוק את המשימה?')) return;
+  state.tasks = state.tasks.filter(x => x.id !== id);
+  save();
+  renderTasks();
+  showToast('המשימה נמחקה');
+}
+
+/* ══════════════════════════════════════
+   SETTINGS
+══════════════════════════════════════ */
+function openSettings() {
+  const e = state.event;
+  const body = `
+    <div class="form-group">
+      <label class="form-label">שם האירוע</label>
+      <input class="form-input" id="s-name" value="${esc(e.name || '')}" placeholder="שם האירוע">
+    </div>
+    <div class="form-group">
+      <label class="form-label">תאריך האירוע</label>
+      <input class="form-input" id="s-date" type="date" value="${e.date || ''}">
+    </div>
+    <div class="form-group">
+      <label class="form-label">תקציב כולל (₪)</label>
+      <input class="form-input" id="s-budget" type="number" min="0" value="${e.totalBudget || ''}">
+    </div>
+    <div class="divider"></div>
+    <div style="display:flex;flex-direction:column;gap:8px">
+      <button class="btn btn-ghost" onclick="exportData(); closeModal()">
+        💾 ייצוא ארכיון JSON
+      </button>
+      <button onclick="document.getElementById('import-input').click()" class="btn btn-ghost">
+        📂 ייבוא נתונים מקובץ
+      </button>
+      <div class="divider" style="margin:4px 0"></div>
+      <button class="btn btn-danger" onclick="deleteAllData()">
+        🗑️ מחק את כל הנתונים
+      </button>
+      <button onclick="doLogout()" style="color:var(--text-light);font-size:13px;padding:8px;text-align:center">
+        🚪 התנתק
+      </button>
+    </div>`;
+  const actions = `
+    <button class="btn btn-ghost" onclick="closeModal()">ביטול</button>
+    <button class="btn btn-primary" onclick="saveSettings()">שמירה</button>`;
+  openModal('הגדרות אירוע', body, actions);
+}
+
+function saveSettings() {
+  state.event.name = document.getElementById('s-name').value.trim() || 'האירוע שלי';
+  state.event.date = document.getElementById('s-date').value || '';
+  state.event.totalBudget = parseFloat(document.getElementById('s-budget').value) || 0;
+  save();
+  closeModal();
+  updateHeader();
+  renderHome();
+  showToast('ההגדרות נשמרו', 'success');
+}
+
+/* ══════════════════════════════════════
+   BACKUP & IMPORT
+══════════════════════════════════════ */
+function exportData() {
+  const data = JSON.stringify(state, null, 2);
+  const blob = new Blob([data], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  const name = (state.event.name || 'אירוע').replace(/\s+/g, '-');
+  a.href = url;
+  a.download = `${name}-גיבוי-${new Date().toISOString().split('T')[0]}.json`;
+  a.click();
+  URL.revokeObjectURL(url);
+  showToast('הגיבוי הורד בהצלחה', 'success');
+}
+
+function importData(e) {
+  const file = e.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = ev => {
+    try {
+      const parsed = JSON.parse(ev.target.result);
+      if (!parsed.event) throw new Error('קובץ לא תקין');
+      if (!confirm('ייבוא יחליף את כל הנתונים הנוכחיים. להמשיך?')) return;
+      state = {
+        event: parsed.event || state.event,
+        guests: parsed.guests || [],
+        vendors: parsed.vendors || [],
+        tasks: parsed.tasks || [],
+        qtyItems: (parsed.qtyItems && parsed.qtyItems.length) ? parsed.qtyItems : DEFAULT_QTY_ITEMS
+      };
+      save();
+      renderAll();
+      showToast('הנתונים יובאו בהצלחה', 'success');
+    } catch(err) {
+      showToast('שגיאה בקריאת הקובץ', 'error');
+    }
+    e.target.value = '';
+  };
+  reader.readAsText(file);
+}
+
+/* ══════════════════════════════════════
+   UTILS
+══════════════════════════════════════ */
+function esc(str) {
+  return String(str || '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
+/* ══════════════════════════════════════
+   SUPABASE CONFIG — מלא את הערכים שלך
+══════════════════════════════════════ */
+const SUPABASE_URL     = 'https://didblbfivfkjbuorqdrb.supabase.co';
+const SUPABASE_ANON_KEY = 'sb_publishable_ueP_KzjXIeYA72YNFkiMeg_1VX6Alse';
+
+let sb = null;
+let currentUser = null;
+let realtimeChannel = null;
+let lastSyncTime = 0;
+
+function setSyncDot(state) {
+  const dot = document.getElementById('sync-dot');
+  if (!dot) return;
+  dot.className = state === 'ok' ? '' : state === 'syncing' ? 'syncing' : 'error';
+  dot.title = state === 'ok' ? 'מסונכרן' : state === 'syncing' ? 'מסנכרן...' : 'שגיאת סנכרון';
+}
+
+async function initSupabase() {
+  try {
+    sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+    const { data: { session } } = await sb.auth.getSession();
+    if (session) {
+      currentUser = session.user;
+      await loadFromSupabase();
+      setupRealtime();
+      showApp();
+    } else {
+      showLogin();
+    }
+  } catch(e) {
+    showLogin();
+  }
+}
+
+function showLogin() {
+  document.getElementById('login-screen').classList.remove('hidden');
+}
+
+function showApp() {
+  document.getElementById('login-screen').classList.add('hidden');
+  updateHeader();
+  updateFAB();
+  renderHome();
+}
+
+async function doLogin() {
+  const email = document.getElementById('login-email').value.trim();
+  const password = document.getElementById('login-password').value;
+  const errEl = document.getElementById('login-error');
+  const btn = document.getElementById('login-btn');
+  errEl.classList.remove('show');
+  if (!email || !password) { errEl.textContent = 'יש למלא אימייל וסיסמה'; errEl.classList.add('show'); return; }
+  btn.textContent = 'מתחבר...';
+  btn.disabled = true;
+  const { data, error } = await sb.auth.signInWithPassword({ email, password });
+  btn.textContent = 'התחבר';
+  btn.disabled = false;
+  if (error) {
+    errEl.textContent = 'שגיאה: ' + (error.message === 'Invalid login credentials' ? 'אימייל או סיסמה שגויים' : error.message);
+    errEl.classList.add('show');
+    return;
+  }
+  currentUser = data.user;
+  await loadFromSupabase();
+  setupRealtime();
+  showApp();
+}
+
+async function doLogout() {
+  if (!confirm('להתנתק?')) return;
+  if (realtimeChannel) sb.removeChannel(realtimeChannel);
+  await sb.auth.signOut();
+  currentUser = null;
+  closeModal();
+  showLogin();
+}
+
+async function loadFromSupabase() {
+  setSyncDot('syncing');
+  try {
+    const { data, error } = await sb.from('event_data').select('data').eq('id', 'main').single();
+    if (error && error.code !== 'PGRST116') throw error;
+    if (data?.data && Object.keys(data.data).length > 0) {
+      state = {
+        event: { name: 'האירוע שלי', date: '', totalBudget: 0, ...(data.data.event || {}) },
+        guests: data.data.guests || [],
+        vendors: data.data.vendors || [],
+        tasks: data.data.tasks || [],
+        qtyItems: (data.data.qtyItems && data.data.qtyItems.length) ? data.data.qtyItems : DEFAULT_QTY_ITEMS
+      };
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+    } else {
+      load();
+      await pushToSupabase();
+    }
+    setSyncDot('ok');
+  } catch(e) {
+    load();
+    setSyncDot('error');
+  }
+}
+
+async function pushToSupabase() {
+  if (!sb || !currentUser) return;
+  setSyncDot('syncing');
+  try {
+    await sb.from('event_data').upsert({ id: 'main', data: state, updated_at: new Date().toISOString() });
+    setSyncDot('ok');
+  } catch(e) {
+    setSyncDot('error');
+  }
+}
+
+function setupRealtime() {
+  if (realtimeChannel) sb.removeChannel(realtimeChannel);
+  realtimeChannel = sb
+    .channel('event_data_realtime')
+    .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'event_data', filter: 'id=eq.main' }, payload => {
+      if (!payload.new?.data) return;
+      const now = Date.now();
+      if (now - lastSyncTime < 1000) return;
+      state = {
+        event: { name: 'האירוע שלי', date: '', totalBudget: 0, ...(payload.new.data.event || {}) },
+        guests: payload.new.data.guests || [],
+        vendors: payload.new.data.vendors || [],
+        tasks: payload.new.data.tasks || [],
+        qtyItems: (payload.new.data.qtyItems && payload.new.data.qtyItems.length) ? payload.new.data.qtyItems : state.qtyItems
+      };
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+      renderAll();
+      setSyncDot('ok');
+      showToast('עדכון מהמתכנן האחר 🔄', 'success');
+    })
+    .subscribe();
+}
+
+async function deleteAllData() {
+  closeModal();
+  if (!confirm('למחוק את כל הנתונים? פעולה זו אינה הפיכה!')) return;
+  if (!confirm('בטוח לגמרי? כל האורחים, הספקים, המשימות והספקים יימחקו.')) return;
+  try {
+    if (sb) await sb.from('event_data').upsert({ id: 'main', data: {}, updated_at: new Date().toISOString() });
+    localStorage.removeItem(STORAGE_KEY);
+    state = { event: { name: 'האירוע שלי', date: '', totalBudget: 0 }, guests: [], vendors: [], tasks: [], qtyItems: DEFAULT_QTY_ITEMS };
+    save();
+    renderAll();
+    showToast('כל הנתונים נמחקו', 'success');
+  } catch(e) {
+    showToast('שגיאה במחיקה', 'error');
+  }
+}
+
+/* ══════════════════════════════════════
+   INIT
+══════════════════════════════════════ */
+function init() {
+  initSupabase();
+}
+
+init();
+</script>
+</body>
+</html>
