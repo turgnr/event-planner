@@ -2232,7 +2232,7 @@ function _membersHtml(members, adults, children) {
   return h;
 }
 
-function openInviteModal(guestId) {
+async function openInviteModal(guestId) {
   const g = state.guests.find(x => x.id === guestId);
   if (!g) return;
 
@@ -2253,8 +2253,12 @@ function openInviteModal(guestId) {
     adults,
     children
   };
-  const rsvpParam = encodeURIComponent(JSON.stringify(tokenData));
-  const rsvpUrl = `${window.location.origin}${window.location.pathname}?rsvp=${rsvpParam}`;
+  if (sb) {
+    try {
+      await sb.from('rsvp_invites').upsert({ token: g.rsvpToken, data: tokenData });
+    } catch(e) { /* fallback to long URL */ }
+  }
+  const rsvpUrl = `${window.location.origin}${window.location.pathname}?rsvp=${g.rsvpToken}`;
 
   const dateStr = state.event.date ? fmtDate(state.event.date) : '';
   const msgText = `הנך מוזמן ל${state.event.name}${dateStr ? `\nבתאריך ${dateStr}` : ''}\n\nהמוזמנים הם:\n${_membersText(g.members, adults, children)}\n\n${rsvpUrl}`;
@@ -2285,9 +2289,28 @@ function sendInviteWa() {
 }
 
 /* ── RSVP PAGE (guest view) ────────── */
-function showRsvpPage(rsvpParam) {
+async function showRsvpPage(rsvpParam) {
+  document.body.innerHTML = `<div style="display:flex;align-items:center;justify-content:center;min-height:100vh;direction:rtl"><div style="font-size:32px">⏳</div></div>`;
+  let td;
   try {
-    const td = JSON.parse(decodeURIComponent(rsvpParam));
+    const client = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+    const { data } = await client.from('rsvp_invites').select('data').eq('token', rsvpParam).single();
+    td = data?.data;
+  } catch(e) {}
+
+  if (!td) {
+    // fallback: old long-URL format
+    try { td = JSON.parse(decodeURIComponent(rsvpParam)); } catch(e) {}
+  }
+
+  if (!td) {
+    document.body.innerHTML = `<div style="display:flex;align-items:center;justify-content:center;min-height:100vh;direction:rtl">
+      <div style="text-align:center;color:#888"><div style="font-size:48px;margin-bottom:12px">🔗</div><p>קישור לא תקין</p></div>
+    </div>`;
+    return;
+  }
+
+  try {
     const { gid, name, event: eventName, date, tok, members, adults: defaultAdults, children: defaultChildren } = td;
     const dateStr = date ? fmtDate(date) : '';
     window._rsvpGid = gid;
@@ -2361,7 +2384,7 @@ function showRsvpPage(rsvpParam) {
       <div style="text-align:center;color:#888"><div style="font-size:48px;margin-bottom:12px">🔗</div><p>קישור לא תקין</p></div>
     </div>`;
   }
-}
+}  // end showRsvpPage
 
 function rsvpShowUpdate() {
   document.getElementById('rsvp-main').style.display = 'none';
