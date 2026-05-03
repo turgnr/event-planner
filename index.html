@@ -1350,7 +1350,7 @@ function renderGuests() {
       ${g.notes ? `<div style="margin-top:8px;font-size:12px;color:var(--text-light);font-style:italic">${esc(g.notes)}</div>` : ''}
       <div class="card-actions">
         ${g.phone ? `<a href="tel:${esc(g.phone)}" class="btn btn-ghost btn-sm">📞 התקשר</a>` : ''}
-        <button class="btn btn-ghost btn-sm" onclick="openInviteModal('${g.id}')">🔗 שלח קישור</button>
+        <button class="btn btn-ghost btn-sm" onclick="openInviteModal('${g.id}')">📨 הזמן</button>
         <button class="btn btn-ghost btn-sm" onclick="openGuestForm('${g.id}')">✏️ עריכה</button>
         <button class="btn btn-danger btn-sm" onclick="deleteGuest('${g.id}')">🗑️</button>
       </div>
@@ -2199,6 +2199,39 @@ function esc(str) {
 /* ══════════════════════════════════════
    INVITES & RSVP
 ══════════════════════════════════════ */
+function _membersText(members, adults, children) {
+  if (members && members.length) {
+    const ad = members.filter(m => m.type === 'adult');
+    const ch = members.filter(m => m.type !== 'adult');
+    const lines = [];
+    if (ad.length) { lines.push('מבוגרים:'); ad.forEach(m => lines.push(`  👨 ${m.name}`)); }
+    if (ch.length) { lines.push('ילדים:');   ch.forEach(m => lines.push(`  🧒 ${m.name}`)); }
+    return lines.join('\n');
+  }
+  return [adults ? `👨 מבוגרים: ${adults}` : '', children ? `🧒 ילדים: ${children}` : ''].filter(Boolean).join('\n');
+}
+
+function _membersHtml(members, adults, children) {
+  if (members && members.length) {
+    const ad = members.filter(m => m.type === 'adult');
+    const ch = members.filter(m => m.type !== 'adult');
+    let h = '';
+    if (ad.length) {
+      h += `<div style="font-size:12px;font-weight:700;color:#888;margin:6px 0 2px">מבוגרים</div>`;
+      h += ad.map(m => `<div style="padding:5px 2px;font-size:15px;border-bottom:1px solid #f0f0f0">👨 ${esc(m.name)}</div>`).join('');
+    }
+    if (ch.length) {
+      h += `<div style="font-size:12px;font-weight:700;color:#888;margin:10px 0 2px">ילדים</div>`;
+      h += ch.map(m => `<div style="padding:5px 2px;font-size:15px;border-bottom:1px solid #f0f0f0">🧒 ${esc(m.name)}</div>`).join('');
+    }
+    return h;
+  }
+  let h = '';
+  if (adults)   h += `<div style="display:flex;justify-content:space-between;padding:6px 2px;font-size:15px"><span>👨 מבוגרים</span><strong>${adults}</strong></div>`;
+  if (children) h += `<div style="display:flex;justify-content:space-between;padding:6px 2px;font-size:15px;border-top:1px solid #f0f0f0"><span>🧒 ילדים</span><strong>${children}</strong></div>`;
+  return h;
+}
+
 function openInviteModal(guestId) {
   const g = state.guests.find(x => x.id === guestId);
   if (!g) return;
@@ -2208,87 +2241,119 @@ function openInviteModal(guestId) {
     save();
   }
 
-  const tokenData = { gid: g.id, name: g.name, event: state.event.name, date: state.event.date || '', tok: g.rsvpToken };
+  const adults = guestAdults(g);
+  const children = guestChildren(g);
+  const tokenData = {
+    gid: g.id,
+    name: g.name,
+    event: state.event.name,
+    date: state.event.date || '',
+    tok: g.rsvpToken,
+    members: g.members || [],
+    adults,
+    children
+  };
   const rsvpParam = encodeURIComponent(JSON.stringify(tokenData));
   const rsvpUrl = `${window.location.origin}${window.location.pathname}?rsvp=${rsvpParam}`;
 
+  const dateStr = state.event.date ? fmtDate(state.event.date) : '';
+  const msgText = `הנך מוזמן ל${state.event.name}${dateStr ? `\nבתאריך ${dateStr}` : ''}\n\nהמוזמנים הם:\n${_membersText(g.members, adults, children)}\n\n${rsvpUrl}`;
+  window._inviteMsg = msgText;
+
   const phone = (g.phone || '').replace(/\D/g, '');
   const waPhone = phone.startsWith('0') ? '972' + phone.slice(1) : phone;
-  window._inviteWaUrl = phone ? `https://wa.me/${waPhone}?text=${encodeURIComponent(rsvpUrl)}` : null;
+  window._inviteWaUrl = phone ? `https://wa.me/${waPhone}?text=${encodeURIComponent(msgText)}` : null;
 
+  const previewHtml = esc(msgText).replace(/\n/g, '<br>');
   const body = `
-    <div class="form-group">
-      <label class="form-label">קישור לאישור הגעה</label>
-      <div style="display:flex;gap:8px;align-items:center">
-        <input class="form-input" id="rsvp-link-input" value="${esc(rsvpUrl)}" readonly style="font-size:12px;direction:ltr;flex:1" onclick="this.select()">
-        <button class="btn btn-ghost btn-sm" onclick="copyInviteLink()">📋</button>
-      </div>
-    </div>
-    <div style="display:flex;gap:8px;margin-top:4px">
-      <button class="btn btn-primary" style="flex:1" onclick="copyInviteLink()">📋 העתק קישור</button>
+    <div style="background:#f4f6f8;border-radius:12px;padding:16px;margin-bottom:16px;font-size:14px;line-height:1.8;direction:rtl;color:#1a1a2e">${previewHtml}</div>
+    <div style="display:flex;gap:8px">
+      <button class="btn btn-ghost" style="flex:1" onclick="copyInviteMsg()">📋 העתק הודעה</button>
       ${window._inviteWaUrl
         ? `<button class="btn btn-primary" style="flex:1;background:#25D366;border-color:#25D366" onclick="sendInviteWa()">💬 WhatsApp</button>`
-        : ''}
+        : `<span style="flex:1;font-size:12px;color:var(--text-light);align-self:center;text-align:center">הוסף טלפון לשליחה ב-WhatsApp</span>`}
     </div>`;
-  openModal(`🔗 קישור אישור ל${esc(g.name)}`, body, `<button class="btn btn-ghost" onclick="closeModal()">סגור</button>`);
+  openModal(`📨 הזמנה ל${esc(g.name)}`, body, `<button class="btn btn-ghost" onclick="closeModal()">סגור</button>`);
 }
 
-function copyInviteLink() {
-  const input = document.getElementById('rsvp-link-input');
-  const url = input ? input.value : (window._inviteMsg || '');
-  navigator.clipboard.writeText(url).then(() => showToast('הקישור הועתק ✅'));
+function copyInviteMsg() {
+  navigator.clipboard.writeText(window._inviteMsg || '').then(() => showToast('ההודעה הועתקה ✅'));
 }
 
 function sendInviteWa() {
   if (window._inviteWaUrl) window.open(window._inviteWaUrl, '_blank');
 }
 
+/* ── RSVP PAGE (guest view) ────────── */
 function showRsvpPage(rsvpParam) {
   try {
-    const tokenData = JSON.parse(decodeURIComponent(rsvpParam));
-    const { gid, name, event: eventName, date, tok } = tokenData;
+    const td = JSON.parse(decodeURIComponent(rsvpParam));
+    const { gid, name, event: eventName, date, tok, members, adults: defaultAdults, children: defaultChildren } = td;
     const dateStr = date ? fmtDate(date) : '';
     window._rsvpGid = gid;
     window._rsvpTok = tok;
+    window._rsvpAdults = defaultAdults || 1;
+    window._rsvpChildren = defaultChildren || 0;
+
+    const membersHtml = _membersHtml(members, defaultAdults, defaultChildren);
 
     document.body.innerHTML = `
-      <div style="min-height:100vh;display:flex;align-items:center;justify-content:center;padding:20px;direction:rtl">
-        <div style="max-width:420px;width:100%;background:white;border-radius:24px;padding:36px 28px;text-align:center;box-shadow:0 8px 40px rgba(0,0,0,0.12)">
-          <div style="font-size:56px;margin-bottom:16px">🎉</div>
-          <h1 style="font-size:22px;font-weight:700;margin-bottom:8px">שלום ${esc(name)}!</h1>
-          <p style="color:#555;margin-bottom:4px;font-size:16px">מוזמנ/ת ל<strong>${esc(eventName)}</strong></p>
-          ${dateStr ? `<p style="color:#888;font-size:14px">📅 ${dateStr}</p>` : ''}
-          <div id="rsvp-btns" style="margin-top:28px">
-            <div style="display:flex;gap:16px;justify-content:center;margin-bottom:24px">
-              <div style="text-align:center">
-                <div style="font-size:13px;color:#555;margin-bottom:6px">מבוגרים</div>
-                <div style="display:flex;align-items:center;gap:6px">
-                  <button onclick="rsvpAdj('adults',-1)" style="width:32px;height:32px;border-radius:50%;border:1px solid #ddd;background:white;font-size:18px;cursor:pointer;line-height:1">−</button>
-                  <span id="rsvp-adults" style="font-size:22px;font-weight:700;min-width:28px;display:inline-block">1</span>
-                  <button onclick="rsvpAdj('adults',1)" style="width:32px;height:32px;border-radius:50%;border:1px solid #ddd;background:white;font-size:18px;cursor:pointer;line-height:1">+</button>
-                </div>
-              </div>
-              <div style="text-align:center">
-                <div style="font-size:13px;color:#555;margin-bottom:6px">ילדים</div>
-                <div style="display:flex;align-items:center;gap:6px">
-                  <button onclick="rsvpAdj('children',-1)" style="width:32px;height:32px;border-radius:50%;border:1px solid #ddd;background:white;font-size:18px;cursor:pointer;line-height:1">−</button>
-                  <span id="rsvp-children" style="font-size:22px;font-weight:700;min-width:28px;display:inline-block">0</span>
-                  <button onclick="rsvpAdj('children',1)" style="width:32px;height:32px;border-radius:50%;border:1px solid #ddd;background:white;font-size:18px;cursor:pointer;line-height:1">+</button>
-                </div>
-              </div>
-            </div>
+      <div style="min-height:100vh;display:flex;align-items:center;justify-content:center;padding:20px;direction:rtl;background:#f8f9fa">
+        <div style="max-width:420px;width:100%;background:white;border-radius:24px;padding:32px 24px;box-shadow:0 8px 40px rgba(0,0,0,0.10)">
+          <div style="text-align:center;margin-bottom:20px">
+            <div style="font-size:48px;margin-bottom:10px">🎉</div>
+            <p style="font-size:16px;color:#333;margin-bottom:4px">הנך מוזמן/ת ל<strong>${esc(eventName)}</strong></p>
+            ${dateStr ? `<p style="color:#888;font-size:14px">בתאריך ${dateStr}</p>` : ''}
+          </div>
+
+          <div style="background:#f8f9fa;border-radius:12px;padding:12px 16px;margin-bottom:24px">
+            <div style="font-size:13px;font-weight:600;color:#888;margin-bottom:8px">המוזמנים הם:</div>
+            ${membersHtml}
+          </div>
+
+          <div id="rsvp-main">
             <div style="display:flex;flex-direction:column;gap:10px">
-              <button onclick="submitRsvp('confirmed')"
-                style="padding:16px;background:#22c55e;color:white;border:none;border-radius:14px;font-size:18px;font-weight:700;cursor:pointer">
-                ✅ כן, אני מגיע/ה!
+              <button onclick="rsvpConfirm()"
+                style="padding:15px;background:#22c55e;color:white;border:none;border-radius:14px;font-size:17px;font-weight:700;cursor:pointer">
+                ✅ אשר
               </button>
-              <button onclick="submitRsvp('declined')"
-                style="padding:14px;background:white;color:#ef4444;border:2px solid #ef4444;border-radius:14px;font-size:16px;font-weight:600;cursor:pointer">
-                ❌ לא אוכל להגיע
+              <button onclick="rsvpShowUpdate()"
+                style="padding:13px;background:white;color:#3b82f6;border:2px solid #3b82f6;border-radius:14px;font-size:16px;font-weight:600;cursor:pointer">
+                ✏️ עדכן מספר משתתפים
+              </button>
+              <button onclick="rsvpDecline()"
+                style="padding:13px;background:white;color:#ef4444;border:2px solid #ef4444;border-radius:14px;font-size:16px;font-weight:600;cursor:pointer">
+                ❌ לא מגיע/ה
               </button>
             </div>
           </div>
-          <div id="rsvp-result" style="display:none;margin-top:28px"></div>
+
+          <div id="rsvp-update" style="display:none">
+            <div style="display:flex;gap:24px;justify-content:center;margin-bottom:24px">
+              <div style="text-align:center">
+                <div style="font-size:13px;color:#555;margin-bottom:8px;font-weight:600">מבוגרים</div>
+                <div style="display:flex;align-items:center;gap:10px">
+                  <button onclick="rsvpAdj('adults',-1)" style="width:36px;height:36px;border-radius:50%;border:1px solid #ddd;background:white;font-size:20px;cursor:pointer">−</button>
+                  <span id="rsvp-adults" style="font-size:26px;font-weight:700;min-width:32px;display:inline-block;text-align:center">${defaultAdults || 1}</span>
+                  <button onclick="rsvpAdj('adults',1)" style="width:36px;height:36px;border-radius:50%;border:1px solid #ddd;background:white;font-size:20px;cursor:pointer">+</button>
+                </div>
+              </div>
+              <div style="text-align:center">
+                <div style="font-size:13px;color:#555;margin-bottom:8px;font-weight:600">ילדים</div>
+                <div style="display:flex;align-items:center;gap:10px">
+                  <button onclick="rsvpAdj('children',-1)" style="width:36px;height:36px;border-radius:50%;border:1px solid #ddd;background:white;font-size:20px;cursor:pointer">−</button>
+                  <span id="rsvp-children" style="font-size:26px;font-weight:700;min-width:32px;display:inline-block;text-align:center">${defaultChildren || 0}</span>
+                  <button onclick="rsvpAdj('children',1)" style="width:36px;height:36px;border-radius:50%;border:1px solid #ddd;background:white;font-size:20px;cursor:pointer">+</button>
+                </div>
+              </div>
+            </div>
+            <div style="display:flex;gap:10px">
+              <button onclick="rsvpConfirm()" style="flex:2;padding:15px;background:#22c55e;color:white;border:none;border-radius:14px;font-size:17px;font-weight:700;cursor:pointer">✅ אשר</button>
+              <button onclick="rsvpShowMain()" style="flex:1;padding:15px;background:white;color:#888;border:1px solid #ddd;border-radius:14px;font-size:15px;cursor:pointer">חזור</button>
+            </div>
+          </div>
+
+          <div id="rsvp-result" style="display:none;text-align:center;margin-top:8px"></div>
         </div>
       </div>`;
   } catch(e) {
@@ -2298,35 +2363,47 @@ function showRsvpPage(rsvpParam) {
   }
 }
 
+function rsvpShowUpdate() {
+  document.getElementById('rsvp-main').style.display = 'none';
+  document.getElementById('rsvp-update').style.display = 'block';
+}
+
+function rsvpShowMain() {
+  document.getElementById('rsvp-update').style.display = 'none';
+  document.getElementById('rsvp-main').style.display = 'block';
+}
+
 function rsvpAdj(field, delta) {
   const el = document.getElementById('rsvp-' + field);
   if (!el) return;
-  const min = field === 'adults' ? 1 : 0;
-  el.textContent = Math.max(min, parseInt(el.textContent) + delta);
+  el.textContent = Math.max(field === 'adults' ? 1 : 0, parseInt(el.textContent) + delta);
 }
 
-async function submitRsvp(status) {
+function rsvpConfirm() {
+  const adults = parseInt(document.getElementById('rsvp-adults')?.textContent ?? window._rsvpAdults) || 1;
+  const children = parseInt(document.getElementById('rsvp-children')?.textContent ?? window._rsvpChildren) || 0;
+  _submitRsvp('confirmed', adults, children);
+}
+
+function rsvpDecline() {
+  _submitRsvp('declined', 0, 0);
+}
+
+async function _submitRsvp(status, adults, children) {
   const gid = window._rsvpGid;
   const tok = window._rsvpTok;
-  const adults = parseInt(document.getElementById('rsvp-adults')?.textContent) || 1;
-  const children = parseInt(document.getElementById('rsvp-children')?.textContent) || 0;
-  const btns = document.getElementById('rsvp-btns');
+  document.getElementById('rsvp-main').style.display = 'none';
+  document.getElementById('rsvp-update').style.display = 'none';
   const result = document.getElementById('rsvp-result');
-  if (btns) btns.style.display = 'none';
   try {
     const client = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
-    await client.from('rsvp_responses').upsert({
-      token: tok, guest_id: gid, status,
-      adults: status === 'confirmed' ? adults : 0,
-      children: status === 'confirmed' ? children : 0,
-      responded_at: new Date().toISOString()
-    });
+    await client.from('rsvp_responses').upsert({ token: tok, guest_id: gid, status, adults, children, responded_at: new Date().toISOString() });
   } catch(e) { /* silent fail */ }
   if (result) {
     result.style.display = 'block';
     result.innerHTML = status === 'confirmed'
-      ? `<div style="font-size:36px">🎊</div><div style="font-size:18px;font-weight:700;color:#22c55e;margin-top:8px">תודה! אישרת הגעה 🎉</div><div style="color:#888;font-size:14px;margin-top:4px">${adults} מבוגרים${children ? ` + ${children} ילדים` : ''}</div>`
-      : '<div style="font-size:36px">🙏</div><div style="font-size:18px;font-weight:600;color:#555;margin-top:8px">תודה על העדכון ❤️</div>';
+      ? `<div style="font-size:40px">🎊</div><div style="font-size:18px;font-weight:700;color:#22c55e;margin-top:10px">תודה! הגעתך אושרה</div><div style="color:#888;font-size:14px;margin-top:6px">${adults} מבוגרים${children ? ` + ${children} ילדים` : ''}</div>`
+      : `<div style="font-size:40px">🙏</div><div style="font-size:18px;font-weight:600;color:#555;margin-top:10px">תודה על העדכון</div>`;
   }
 }
 
@@ -2426,11 +2503,32 @@ async function loadFromSupabase() {
       load();
       await pushToSupabase();
     }
+    await loadRsvpResponses();
     setSyncDot('ok');
   } catch(e) {
     load();
     setSyncDot('error');
   }
+}
+
+async function loadRsvpResponses() {
+  try {
+    const tokens = state.guests.filter(g => g.rsvpToken).map(g => g.rsvpToken);
+    if (!tokens.length) return;
+    const { data } = await sb.from('rsvp_responses').select('token,status,adults,children').in('token', tokens);
+    if (!data || !data.length) return;
+    let changed = false;
+    data.forEach(row => {
+      const g = state.guests.find(x => x.rsvpToken === row.token);
+      if (!g) return;
+      if (g.status !== row.status) { g.status = row.status; changed = true; }
+      if (row.status === 'confirmed') {
+        if (row.adults != null && g.adults !== row.adults)   { g.adults = row.adults;     changed = true; }
+        if (row.children != null && g.children !== row.children) { g.children = row.children; changed = true; }
+      }
+    });
+    if (changed) { save(); renderAll(); }
+  } catch(e) { /* rsvp_responses table may not exist yet */ }
 }
 
 async function pushToSupabase() {
