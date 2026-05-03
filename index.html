@@ -1350,7 +1350,7 @@ function renderGuests() {
       ${g.notes ? `<div style="margin-top:8px;font-size:12px;color:var(--text-light);font-style:italic">${esc(g.notes)}</div>` : ''}
       <div class="card-actions">
         ${g.phone ? `<a href="tel:${esc(g.phone)}" class="btn btn-ghost btn-sm">📞 התקשר</a>` : ''}
-        <button class="btn btn-ghost btn-sm" onclick="openInviteModal('${g.id}')">📨 הזמן</button>
+        <button class="btn btn-ghost btn-sm" onclick="openInviteModal('${g.id}')">🔗 שלח קישור</button>
         <button class="btn btn-ghost btn-sm" onclick="openGuestForm('${g.id}')">✏️ עריכה</button>
         <button class="btn btn-danger btn-sm" onclick="deleteGuest('${g.id}')">🗑️</button>
       </div>
@@ -2212,30 +2212,31 @@ function openInviteModal(guestId) {
   const rsvpParam = encodeURIComponent(JSON.stringify(tokenData));
   const rsvpUrl = `${window.location.origin}${window.location.pathname}?rsvp=${rsvpParam}`;
 
-  const dateStr = state.event.date ? fmtDate(state.event.date) : '';
-  const message = `שלום ${g.name}!\nמוזמנ/ת ל${state.event.name} 🎉` +
-    (dateStr ? `\n📅 ${dateStr}` : '') +
-    `\n\nאנא אשר/י הגעתך:\n👉 ${rsvpUrl}`;
-
-  window._inviteMsg = message;
   const phone = (g.phone || '').replace(/\D/g, '');
   const waPhone = phone.startsWith('0') ? '972' + phone.slice(1) : phone;
-  window._inviteWaUrl = phone ? `https://wa.me/${waPhone}?text=${encodeURIComponent(message)}` : null;
+  window._inviteWaUrl = phone ? `https://wa.me/${waPhone}?text=${encodeURIComponent(rsvpUrl)}` : null;
 
-  const previewText = esc(message).replace(/\n/g, '<br>');
   const body = `
-    <div style="background:var(--surface-2,#f4f6f8);border-radius:12px;padding:16px;margin-bottom:16px;font-size:14px;line-height:1.7;direction:rtl">${previewText}</div>
-    <div style="display:flex;gap:8px">
-      <button class="btn btn-ghost" style="flex:1" onclick="copyInviteMsg()">📋 העתק</button>
+    <div class="form-group">
+      <label class="form-label">קישור לאישור הגעה</label>
+      <div style="display:flex;gap:8px;align-items:center">
+        <input class="form-input" id="rsvp-link-input" value="${esc(rsvpUrl)}" readonly style="font-size:12px;direction:ltr;flex:1" onclick="this.select()">
+        <button class="btn btn-ghost btn-sm" onclick="copyInviteLink()">📋</button>
+      </div>
+    </div>
+    <div style="display:flex;gap:8px;margin-top:4px">
+      <button class="btn btn-primary" style="flex:1" onclick="copyInviteLink()">📋 העתק קישור</button>
       ${window._inviteWaUrl
         ? `<button class="btn btn-primary" style="flex:1;background:#25D366;border-color:#25D366" onclick="sendInviteWa()">💬 WhatsApp</button>`
-        : `<span style="flex:1;font-size:12px;color:var(--text-light);align-self:center;text-align:center">הוסף טלפון לשליחה ב-WhatsApp</span>`}
+        : ''}
     </div>`;
-  openModal(`📨 הזמנה ל${esc(g.name)}`, body, `<button class="btn btn-ghost" onclick="closeModal()">סגור</button>`);
+  openModal(`🔗 קישור אישור ל${esc(g.name)}`, body, `<button class="btn btn-ghost" onclick="closeModal()">סגור</button>`);
 }
 
-function copyInviteMsg() {
-  navigator.clipboard.writeText(window._inviteMsg || '').then(() => showToast('ההודעה הועתקה ✅'));
+function copyInviteLink() {
+  const input = document.getElementById('rsvp-link-input');
+  const url = input ? input.value : (window._inviteMsg || '');
+  navigator.clipboard.writeText(url).then(() => showToast('הקישור הועתק ✅'));
 }
 
 function sendInviteWa() {
@@ -2257,15 +2258,35 @@ function showRsvpPage(rsvpParam) {
           <h1 style="font-size:22px;font-weight:700;margin-bottom:8px">שלום ${esc(name)}!</h1>
           <p style="color:#555;margin-bottom:4px;font-size:16px">מוזמנ/ת ל<strong>${esc(eventName)}</strong></p>
           ${dateStr ? `<p style="color:#888;font-size:14px">📅 ${dateStr}</p>` : ''}
-          <div id="rsvp-btns" style="margin-top:32px;display:flex;flex-direction:column;gap:12px">
-            <button onclick="submitRsvp('confirmed')"
-              style="padding:16px;background:#22c55e;color:white;border:none;border-radius:14px;font-size:18px;font-weight:700;cursor:pointer">
-              ✅ כן, אני מגיע/ה!
-            </button>
-            <button onclick="submitRsvp('declined')"
-              style="padding:14px;background:white;color:#ef4444;border:2px solid #ef4444;border-radius:14px;font-size:16px;font-weight:600;cursor:pointer">
-              ❌ לא אוכל להגיע
-            </button>
+          <div id="rsvp-btns" style="margin-top:28px">
+            <div style="display:flex;gap:16px;justify-content:center;margin-bottom:24px">
+              <div style="text-align:center">
+                <div style="font-size:13px;color:#555;margin-bottom:6px">מבוגרים</div>
+                <div style="display:flex;align-items:center;gap:6px">
+                  <button onclick="rsvpAdj('adults',-1)" style="width:32px;height:32px;border-radius:50%;border:1px solid #ddd;background:white;font-size:18px;cursor:pointer;line-height:1">−</button>
+                  <span id="rsvp-adults" style="font-size:22px;font-weight:700;min-width:28px;display:inline-block">1</span>
+                  <button onclick="rsvpAdj('adults',1)" style="width:32px;height:32px;border-radius:50%;border:1px solid #ddd;background:white;font-size:18px;cursor:pointer;line-height:1">+</button>
+                </div>
+              </div>
+              <div style="text-align:center">
+                <div style="font-size:13px;color:#555;margin-bottom:6px">ילדים</div>
+                <div style="display:flex;align-items:center;gap:6px">
+                  <button onclick="rsvpAdj('children',-1)" style="width:32px;height:32px;border-radius:50%;border:1px solid #ddd;background:white;font-size:18px;cursor:pointer;line-height:1">−</button>
+                  <span id="rsvp-children" style="font-size:22px;font-weight:700;min-width:28px;display:inline-block">0</span>
+                  <button onclick="rsvpAdj('children',1)" style="width:32px;height:32px;border-radius:50%;border:1px solid #ddd;background:white;font-size:18px;cursor:pointer;line-height:1">+</button>
+                </div>
+              </div>
+            </div>
+            <div style="display:flex;flex-direction:column;gap:10px">
+              <button onclick="submitRsvp('confirmed')"
+                style="padding:16px;background:#22c55e;color:white;border:none;border-radius:14px;font-size:18px;font-weight:700;cursor:pointer">
+                ✅ כן, אני מגיע/ה!
+              </button>
+              <button onclick="submitRsvp('declined')"
+                style="padding:14px;background:white;color:#ef4444;border:2px solid #ef4444;border-radius:14px;font-size:16px;font-weight:600;cursor:pointer">
+                ❌ לא אוכל להגיע
+              </button>
+            </div>
           </div>
           <div id="rsvp-result" style="display:none;margin-top:28px"></div>
         </div>
@@ -2277,20 +2298,34 @@ function showRsvpPage(rsvpParam) {
   }
 }
 
+function rsvpAdj(field, delta) {
+  const el = document.getElementById('rsvp-' + field);
+  if (!el) return;
+  const min = field === 'adults' ? 1 : 0;
+  el.textContent = Math.max(min, parseInt(el.textContent) + delta);
+}
+
 async function submitRsvp(status) {
   const gid = window._rsvpGid;
   const tok = window._rsvpTok;
+  const adults = parseInt(document.getElementById('rsvp-adults')?.textContent) || 1;
+  const children = parseInt(document.getElementById('rsvp-children')?.textContent) || 0;
   const btns = document.getElementById('rsvp-btns');
   const result = document.getElementById('rsvp-result');
   if (btns) btns.style.display = 'none';
   try {
     const client = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
-    await client.from('rsvp_responses').upsert({ token: tok, guest_id: gid, status, responded_at: new Date().toISOString() });
+    await client.from('rsvp_responses').upsert({
+      token: tok, guest_id: gid, status,
+      adults: status === 'confirmed' ? adults : 0,
+      children: status === 'confirmed' ? children : 0,
+      responded_at: new Date().toISOString()
+    });
   } catch(e) { /* silent fail */ }
   if (result) {
     result.style.display = 'block';
     result.innerHTML = status === 'confirmed'
-      ? '<div style="font-size:36px">🎊</div><div style="font-size:18px;font-weight:700;color:#22c55e;margin-top:8px">תודה! אישרת הגעה 🎉</div>'
+      ? `<div style="font-size:36px">🎊</div><div style="font-size:18px;font-weight:700;color:#22c55e;margin-top:8px">תודה! אישרת הגעה 🎉</div><div style="color:#888;font-size:14px;margin-top:4px">${adults} מבוגרים${children ? ` + ${children} ילדים` : ''}</div>`
       : '<div style="font-size:36px">🙏</div><div style="font-size:18px;font-weight:600;color:#555;margin-top:8px">תודה על העדכון ❤️</div>';
   }
 }
@@ -2436,10 +2471,17 @@ function setupRealtime() {
       const g = state.guests.find(x => x.rsvpToken === payload.new.token);
       if (!g) return;
       g.status = payload.new.status;
+      if (payload.new.status === 'confirmed') {
+        if (payload.new.adults !== undefined) g.adults = payload.new.adults;
+        if (payload.new.children !== undefined) g.children = payload.new.children;
+      }
       save();
       renderAll();
+      const a = payload.new.adults || 0;
+      const c = payload.new.children || 0;
+      const countStr = payload.new.status === 'confirmed' ? ` (${a} מבוגרים${c ? ` + ${c} ילדים` : ''})` : '';
       showToast(payload.new.status === 'confirmed'
-        ? `${g.name} ✅ אישר/ה הגעה!`
+        ? `${g.name} ✅ אישר/ה הגעה!${countStr}`
         : `${g.name} ❌ לא יגיע/ה`, 'success');
     })
     .subscribe();
