@@ -2253,12 +2253,15 @@ async function openInviteModal(guestId) {
     adults,
     children
   };
+  let useShortUrl = false;
   if (sb) {
-    try {
-      await sb.from('rsvp_invites').upsert({ token: g.rsvpToken, data: tokenData });
-    } catch(e) { /* fallback to long URL */ }
+    const { error: invErr } = await sb.from('rsvp_invites').upsert({ token: g.rsvpToken, data: tokenData });
+    if (invErr) console.warn('rsvp_invites upsert:', invErr.message);
+    else useShortUrl = true;
   }
-  const rsvpUrl = `${window.location.origin}${window.location.pathname}?rsvp=${g.rsvpToken}`;
+  const rsvpUrl = useShortUrl
+    ? `${window.location.origin}${window.location.pathname}?rsvp=${g.rsvpToken}`
+    : `${window.location.origin}${window.location.pathname}?rsvp=${encodeURIComponent(JSON.stringify(tokenData))}`;
 
   const dateStr = state.event.date ? fmtDate(state.event.date) : '';
   const msgText = `הנך מוזמן ל${state.event.name}${dateStr ? `\nבתאריך ${dateStr}` : ''}\n\nהמוזמנים הם:\n${_membersText(g.members, adults, children)}\n\n${rsvpUrl}`;
@@ -2294,9 +2297,10 @@ async function showRsvpPage(rsvpParam) {
   let td;
   try {
     const client = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
-    const { data } = await client.from('rsvp_invites').select('data').eq('token', rsvpParam).single();
+    const { data, error } = await client.from('rsvp_invites').select('data').eq('token', rsvpParam).single();
+    if (error) console.warn('rsvp_invites fetch:', error.message);
     td = data?.data;
-  } catch(e) {}
+  } catch(e) { console.warn('rsvp fetch exception:', e); }
 
   if (!td) {
     // fallback: old long-URL format
