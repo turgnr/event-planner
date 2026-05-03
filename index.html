@@ -959,18 +959,18 @@ a { text-decoration: none; color: inherit; }
 const STORAGE_KEY = 'https://supabase.com/dashboard/sign-in?returnTo=%2Forg';
 
 const DEFAULT_QTY_ITEMS = [
-  { id: 'q1', name: 'מנות ראשונות', icon: '🥗', perPerson: 1, desc: 'מנה לאורח' },
-  { id: 'q2', name: 'מנות עיקריות', icon: '🍽️', perPerson: 1, desc: 'מנה לאורח' },
-  { id: 'q3', name: 'קינוחים',      icon: '🍰', perPerson: 1.2, desc: 'מנה לאורח' },
-  { id: 'q4', name: 'שתיה קלה',    icon: '🥤', perPerson: 2, desc: 'בקבוקים לאורח' },
-  { id: 'q5', name: 'בקבוקי יין',  icon: '🍷', perPerson: 0.3, desc: 'בקבוקים לאורח' },
-  { id: 'q6', name: 'כוסות בירה',  icon: '🍺', perPerson: 0.5, desc: 'כוסות לאורח' },
-  { id: 'q7', name: 'לחמניות',     icon: '🍞', perPerson: 1.5, desc: 'יחידות לאורח' },
-  { id: 'q8', name: 'שולחנות',     icon: '🪑', perPerson: 0.1, desc: 'שולחן לאורחים' },
+  { id: 'q1', name: 'מנות ראשונות', icon: '🥗', perPerson: 1,   calcBy: 'person', desc: 'מנה לאורח' },
+  { id: 'q2', name: 'מנות עיקריות', icon: '🍽️', perPerson: 1,   calcBy: 'person', desc: 'מנה לאורח' },
+  { id: 'q3', name: 'קינוחים',      icon: '🍰', perPerson: 1.2, calcBy: 'person', desc: 'מנה לאורח' },
+  { id: 'q4', name: 'שתיה קלה',    icon: '🥤', perPerson: 2,   perTable: 4, calcBy: 'table', desc: 'בקבוקים לשולחן' },
+  { id: 'q5', name: 'בקבוקי יין',  icon: '🍷', perPerson: 0.3, calcBy: 'person', desc: 'בקבוקים לאורח' },
+  { id: 'q6', name: 'כוסות בירה',  icon: '🍺', perPerson: 0.5, calcBy: 'person', desc: 'כוסות לאורח' },
+  { id: 'q7', name: 'לחמניות',     icon: '🍞', perPerson: 1.5, calcBy: 'person', desc: 'יחידות לאורח' },
+  { id: 'q8', name: 'שולחנות',     icon: '🪑', perPerson: 0.1, perTable: 1, calcBy: 'table', desc: 'שולחנות' },
 ];
 
 let state = {
-  event: { name: 'האירוע שלי', date: '', totalBudget: 0 },
+  event: { name: 'האירוע שלי', date: '', totalBudget: 0, seatsPerTable: 10 },
   guests: [],
   vendors: [],
   tasks: [],
@@ -1047,6 +1047,10 @@ function confirmedSeats() {
 }
 function totalSeats() {
   return state.guests.reduce((s, g) => s + guestSeats(g), 0);
+}
+function tableCount() {
+  const spt = state.event.seatsPerTable || 10;
+  return Math.ceil(confirmedSeats() / spt);
 }
 function totalFoodCost(guestsArr) {
   return (guestsArr || state.guests)
@@ -1856,18 +1860,34 @@ function renderBudget() {
 ══════════════════════════════════════ */
 function renderQty() {
   const seats = confirmedSeats();
+  const spt = state.event.seatsPerTable || 10;
+  const tables = tableCount();
+
   const baseInfo = `<div class="qty-base-info">
-    בסיס חישוב: <strong>${seats}</strong> אורחים מאושרים
-    ${seats === 0 ? ' — אשר אורחים כדי לקבל חישובים' : ''}
+    <div style="display:flex;align-items:center;gap:16px;flex-wrap:wrap;row-gap:8px">
+      <span>אורחים מאושרים: <strong>${seats}</strong></span>
+      <span>שולחנות: <strong>${tables}</strong></span>
+      <span style="display:flex;align-items:center;gap:6px">
+        מקומות לשולחן:
+        <input type="number" min="1" max="50" value="${spt}"
+          style="width:56px;padding:2px 6px;border:1px solid var(--border);border-radius:6px;font-size:13px;text-align:center"
+          onchange="setSeatsPerTable(this.value)">
+      </span>
+    </div>
+    ${seats === 0 ? '<div style="margin-top:6px;color:var(--text-light)">אשר אורחים כדי לקבל חישובים</div>' : ''}
   </div>`;
 
   const items = state.qtyItems.map(item => {
-    const qty = seats ? Math.ceil(seats * item.perPerson) : 0;
+    const isTable = item.calcBy === 'table';
+    const base = isTable ? tables : seats;
+    const multiplier = isTable ? (item.perTable || 1) : item.perPerson;
+    const qty = base ? Math.ceil(base * multiplier) : 0;
+    const perLabel = isTable ? `${multiplier} לשולחן 🪑` : `${multiplier} לאורח`;
     return `<div class="qty-card">
       <div class="qty-icon">${item.icon}</div>
       <div class="qty-info">
         <div class="qty-name">${esc(item.name)}</div>
-        <div class="qty-per">${item.perPerson} ${item.desc || 'לאורח'}</div>
+        <div class="qty-per">${perLabel}</div>
       </div>
       <div>
         <div class="qty-result">${qty}</div>
@@ -1880,17 +1900,37 @@ function renderQty() {
   document.getElementById('qty-content').innerHTML = baseInfo + (items || `<div class="empty-state"><div class="empty-icon">📦</div><div class="empty-title">אין פריטים</div></div>`);
 }
 
+function setSeatsPerTable(val) {
+  const n = parseInt(val);
+  if (!n || n < 1) return;
+  state.event.seatsPerTable = n;
+  save();
+  renderQty();
+}
+
 function editQtyItem(id) {
   const item = state.qtyItems.find(x => x.id === id);
   if (!item) return;
+  const isTable = item.calcBy === 'table';
   const body = `
     <div style="text-align:center;margin-bottom:20px">
       <div style="font-size:40px;margin-bottom:8px">${item.icon}</div>
       <div style="font-size:17px;font-weight:700">${esc(item.name)}</div>
     </div>
     <div class="form-group">
+      <label class="form-label">חישוב לפי</label>
+      <select class="form-input" id="qty-calcby" onchange="toggleQtyCalcBy()">
+        <option value="person" ${!isTable ? 'selected' : ''}>לפי אורח</option>
+        <option value="table" ${isTable ? 'selected' : ''}>לפי שולחן</option>
+      </select>
+    </div>
+    <div class="form-group" id="qty-per-person-group" ${isTable ? 'style="display:none"' : ''}>
       <label class="form-label">כמות לאורח</label>
-      <input class="form-input" id="qty-per" type="number" min="0.01" step="0.01" value="${item.perPerson}">
+      <input class="form-input" id="qty-per-person" type="number" min="0.01" step="0.01" value="${item.perPerson}">
+    </div>
+    <div class="form-group" id="qty-per-table-group" ${!isTable ? 'style="display:none"' : ''}>
+      <label class="form-label">כמות לשולחן</label>
+      <input class="form-input" id="qty-per-table" type="number" min="0.01" step="0.01" value="${item.perTable || item.perPerson}">
     </div>`;
   const actions = `
     <button class="btn btn-ghost" onclick="closeModal()">ביטול</button>
@@ -1898,11 +1938,27 @@ function editQtyItem(id) {
   openModal('עריכת כמות', body, actions);
 }
 
+function toggleQtyCalcBy() {
+  const isTable = document.getElementById('qty-calcby').value === 'table';
+  document.getElementById('qty-per-person-group').style.display = isTable ? 'none' : '';
+  document.getElementById('qty-per-table-group').style.display = isTable ? '' : 'none';
+}
+
 function saveQtyItem(id) {
-  const per = parseFloat(document.getElementById('qty-per').value);
-  if (!per || per <= 0) { showToast('כמות לא תקינה', 'error'); return; }
+  const calcBy = document.getElementById('qty-calcby').value;
   const i = state.qtyItems.findIndex(x => x.id === id);
-  if (i !== -1) state.qtyItems[i].perPerson = per;
+  if (i === -1) return;
+  if (calcBy === 'table') {
+    const perTable = parseFloat(document.getElementById('qty-per-table').value);
+    if (!perTable || perTable <= 0) { showToast('כמות לא תקינה', 'error'); return; }
+    state.qtyItems[i].calcBy = 'table';
+    state.qtyItems[i].perTable = perTable;
+  } else {
+    const perPerson = parseFloat(document.getElementById('qty-per-person').value);
+    if (!perPerson || perPerson <= 0) { showToast('כמות לא תקינה', 'error'); return; }
+    state.qtyItems[i].calcBy = 'person';
+    state.qtyItems[i].perPerson = perPerson;
+  }
   save();
   closeModal();
   renderQty();
